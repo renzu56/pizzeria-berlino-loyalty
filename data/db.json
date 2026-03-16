@@ -1,0 +1,747 @@
+{
+  "users": [
+    {
+      "id": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "name": "Lennard",
+      "email": "feistlennard@gmail.com",
+      "passwordHash": "$2a$10$3BK0VeKiuoVx9JjHXxKQaul6WXSFi0ex3CRkAIM9pzWZZsmFrSMtu",
+      "role": "customer",
+      "verified": true,
+      "verifyToken": null,
+      "walletToken": "member_ab7a2091bd537726c503",
+      "points": 10,
+      "pizzaCount": 2,
+      "createdAt": "2026-03-12T19:29:43.935Z"
+    },
+    {
+      "id": "f6d6c978-fa48-49ec-a1c6-b0b2600a4fe2",
+      "name": "Admin",
+      "email": "admin@example.com",
+      "passwordHash": "$2a$10$5HBfnW.LfCIiYT/.dDS9IeDUYvz6D7UqC2rAcpWlyfL73kh0DHZHO",
+      "role": "admin",
+      "verified": true,
+      "verifyToken": null,
+      "walletToken": "member_d04190b73dfac39a6369",
+      "points": 0,
+      "pizzaCount": 0,
+      "createdAt": "2026-03-12T19:32:33.351Z"
+    },
+    {
+      "id": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "name": "Aaa",
+      "email": "kunde@example.com",
+      "passwordHash": "$2a$10$D58mxoNxR8t05BGLceyDvu8DhjhDj8zwb1hmryAnrNzI/S2gyBisy",
+      "role": "customer",
+      "verified": true,
+      "verifyToken": null,
+      "walletToken": "member_480baafdaec17fd1d87d",
+      "points": 35,
+      "pizzaCount": 0,
+      "createdAt": "2026-03-14T12:39:59.570Z"
+    }
+  ],
+  "taskStates": [
+    {
+      "id": "d3c7d87c-fbc6-41f7-9159-4904538dbcd4",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "instagram",
+      "clickedAt": "2026-03-12T20:05:58.474Z",
+      "claimedAt": null,
+      "status": "clicked"
+    },
+    {
+      "id": "092d5017-0dec-410c-8b36-8d3cf1bd2e45",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "review",
+      "clickedAt": "2026-03-12T20:06:04.542Z",
+      "claimedAt": "2026-03-12T20:06:12.681Z",
+      "status": "claimed"
+    },
+    {
+      "id": "051bb995-83a8-44fd-ab71-743ec2ec5623",
+      "userId": "f6d6c978-fa48-49ec-a1c6-b0b2600a4fe2",
+      "type": "instagram",
+      "clickedAt": "2026-03-12T21:20:35.381Z",
+      "claimedAt": null,
+      "status": "clicked"
+    },
+    {
+      "id": "a3cf4906-db9c-46e2-b088-77c66867480e",
+      "userId": "f6d6c978-fa48-49ec-a1c6-b0b2600a4fe2",
+      "type": "review",
+      "clickedAt": null,
+      "claimedAt": null,
+      "status": "idle"
+    },
+    {
+      "id": "3f2a0c00-8677-4686-8e32-fdd4ebf8bf92",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "instagram",
+      "clickedAt": "2026-03-14T13:46:55.996Z",
+      "claimedAt": "2026-03-14T13:47:19.304Z",
+      "status": "done"
+    },
+    {
+      "id": "300f4374-3608-47af-931c-98c24c2d8631",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "review",
+      "clickedAt": null,
+      "claimedAt": null,
+      "status": "idle"
+    }
+  ],
+  "submissions": [],
+  "events": [
+    {
+      "id": "82761fcb-4fce-4480-97ca-6d0ff5418be7",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "instagram",
+      "points": 25,
+      "pizzas": 0,
+      "note": "Instagram Follow Task",
+      "meta": {},
+      "createdAt": "2026-03-14T13:47:19.304Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "ee5b876b-1921-43b4-ab74-c798f41cbcfa",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-14T13:13:54.945Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "d6307b8e-9740-4aa2-9f7a-a3bdff80d9d8",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher eingelöst: 10% Rabatt",
+      "meta": {
+        "code": "LP-FC175B",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-14T13:13:33.229Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "6e4eb5c9-dee0-48dc-a23d-e4f4fa214b14",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher eingelöst: 10% Rabatt",
+      "meta": {
+        "code": "LP-B3286D",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-14T13:11:27.001Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "727fc4d3-38cd-4c44-905c-b4dca0c8fd68",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-14T13:11:18.923Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "5e4e3aa6-3724-4ea2-acae-d49e1be9fb5b",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-14T13:11:17.153Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "b187460a-b324-45fb-a1f0-93a00f3a4a45",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -50,
+      "pizzas": 0,
+      "note": "Reward eingelöst: Kostenloses Getränk",
+      "meta": {
+        "rewardId": "r50"
+      },
+      "createdAt": "2026-03-14T13:11:15.536Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "7d8431f1-dfb5-40bf-95b1-ade2a0373687",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-14T13:11:14.077Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "bec0b4e0-e690-4e8a-b2de-bc0b481cb8d2",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "admin-code",
+      "points": 120,
+      "pizzas": 0,
+      "note": "E",
+      "meta": {
+        "code": "CA33D150"
+      },
+      "createdAt": "2026-03-14T13:11:08.441Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "ff020c04-45fe-48d2-87aa-8e3ab00afcc1",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher eingelöst: Kostenloses Getränk",
+      "meta": {
+        "code": "LP-D33257",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-14T12:44:50.953Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "05d62daa-9b6e-4bd1-8830-2bd942c0215b",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher eingelöst: Kostenloses Getränk",
+      "meta": {
+        "code": "LP-9222A0",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-14T12:44:38.549Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "3bda19e7-0fb7-4081-91d3-1e6daee2aa78",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -50,
+      "pizzas": 0,
+      "note": "Reward eingelöst: Kostenloses Getränk",
+      "meta": {
+        "rewardId": "r50"
+      },
+      "createdAt": "2026-03-14T12:44:18.066Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "aad2fa8d-c7cb-411c-af7a-07b42271086f",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -50,
+      "pizzas": 0,
+      "note": "Reward eingelöst: Kostenloses Getränk",
+      "meta": {
+        "rewardId": "r50"
+      },
+      "createdAt": "2026-03-14T12:44:15.288Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "c25bd20e-6d33-4280-86f2-5bcc2f7651f7",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "admin-code",
+      "points": 100,
+      "pizzas": 0,
+      "note": "100",
+      "meta": {
+        "code": "166F7E5F"
+      },
+      "createdAt": "2026-03-14T12:44:06.409Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "7f323936-e2bc-4cf0-9e8d-5eff7953844b",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher eingelöst: Kostenloses Getränk",
+      "meta": {
+        "code": "LP-8DC0D0",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-14T12:43:27.590Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "d632bd8b-5194-4714-ab58-6dabbf5633f9",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "redeem",
+      "points": -50,
+      "pizzas": 0,
+      "note": "Reward eingelöst: Kostenloses Getränk",
+      "meta": {
+        "rewardId": "r50"
+      },
+      "createdAt": "2026-03-14T12:42:20.141Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "988d1a5f-3c31-4f44-ad6a-6fd531337078",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "type": "admin-code",
+      "points": 50,
+      "pizzas": 0,
+      "note": "AAAa",
+      "meta": {
+        "code": "F12BF373"
+      },
+      "createdAt": "2026-03-14T12:42:14.320Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "fdf802ea-e36f-4c53-9e4f-9060c5c503b9",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-14T12:36:20.551Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "7f7d5763-b4bd-474b-86c5-d43cf3eef6fd",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-14T12:05:05.824Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "f5b46185-7199-4c6e-9838-0c7a1d1d778d",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "admin-code",
+      "points": 35,
+      "pizzas": 0,
+      "note": "AAA",
+      "meta": {
+        "code": "92776014"
+      },
+      "createdAt": "2026-03-14T12:05:02.004Z",
+      "dayKey": "2026-03-14"
+    },
+    {
+      "id": "46d9ac4c-701c-482f-a704-36ce677f8871",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher eingelöst: 10% Rabatt",
+      "meta": {
+        "code": "LP-DA7437",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-13T19:28:57.988Z",
+      "dayKey": "2026-03-13"
+    },
+    {
+      "id": "e7d33f43-c8b6-479b-9bac-8035283de9d5",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher eingelöst: 10% Rabatt",
+      "meta": {
+        "code": "LP-5C4544",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-13T19:28:48.111Z",
+      "dayKey": "2026-03-13"
+    },
+    {
+      "id": "91de0578-8ed8-45bf-a886-8c6a1f08b89c",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "voucher-used",
+      "points": 0,
+      "pizzas": 0,
+      "note": "Voucher verwendet: 10% Rabatt",
+      "meta": {
+        "code": "LP-C59BDC"
+      },
+      "createdAt": "2026-03-12T23:01:48.012Z",
+      "dayKey": "2026-03-13"
+    },
+    {
+      "id": "51450f29-3ee1-40a9-93b0-6f1db5e356d9",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-12T23:01:35.226Z",
+      "dayKey": "2026-03-13"
+    },
+    {
+      "id": "9edd52b4-30a2-4690-8aed-431bf27fdad2",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "staff-scan",
+      "points": 15,
+      "pizzas": 2,
+      "note": "2 Pizzen bestellt",
+      "meta": {
+        "configHash": "{\"active\":true,\"label\":\"2 Pizzen bestellt\",\"addPoints\":15,\"addPizzas\":2,\"oncePerDay\":false}",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-12T21:23:01.972Z",
+      "dayKey": "2026-03-12"
+    },
+    {
+      "id": "71f5e150-738a-4764-b680-1a56c62af9c8",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-12T20:06:23.847Z",
+      "dayKey": "2026-03-12"
+    },
+    {
+      "id": "3572c1d8-5331-4be5-9782-fbfe5b6ce893",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "redeem",
+      "points": -15,
+      "pizzas": 0,
+      "note": "Reward eingelöst: 10% Rabatt",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "createdAt": "2026-03-12T20:06:20.575Z",
+      "dayKey": "2026-03-12"
+    },
+    {
+      "id": "bfff97f0-3276-4658-ad5c-69cb171f2e79",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "review",
+      "points": 25,
+      "pizzas": 0,
+      "note": "Google Review",
+      "meta": {},
+      "createdAt": "2026-03-12T20:06:12.681Z",
+      "dayKey": "2026-03-12"
+    },
+    {
+      "id": "fdcc16b6-743b-4b62-aa21-94a61c979deb",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "type": "staff-scan",
+      "points": 10,
+      "pizzas": 0,
+      "note": "Daily Check-in",
+      "meta": {
+        "configHash": "{\"active\":true,\"label\":\"Daily Check-in\",\"addPoints\":10,\"addPizzas\":0,\"oncePerDay\":true}",
+        "scannedBy": "admin@example.com"
+      },
+      "createdAt": "2026-03-12T20:05:27.264Z",
+      "dayKey": "2026-03-12"
+    }
+  ],
+  "vouchers": [
+    {
+      "id": "79973782-98c6-4ad7-943d-cc738a11b05c",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-A80515",
+      "status": "open",
+      "createdAt": "2026-03-14T13:13:54.945Z",
+      "usedAt": null,
+      "usedBy": null,
+      "meta": {
+        "rewardId": "r15"
+      }
+    },
+    {
+      "id": "6755553e-da69-464d-9139-c33c1ae4a3c7",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-B3286D",
+      "status": "used",
+      "createdAt": "2026-03-14T13:11:18.925Z",
+      "usedAt": "2026-03-14T13:11:27.001Z",
+      "usedBy": "admin@example.com",
+      "meta": {
+        "rewardId": "r15"
+      }
+    },
+    {
+      "id": "aeb08ade-c9ef-4557-b020-1ff5cd16e18a",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-FC175B",
+      "status": "used",
+      "createdAt": "2026-03-14T13:11:17.155Z",
+      "usedAt": "2026-03-14T13:13:33.227Z",
+      "usedBy": "admin@example.com",
+      "meta": {
+        "rewardId": "r15"
+      }
+    },
+    {
+      "id": "8aa9b513-33b4-4813-9409-aabe91eb2713",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "Kostenloses Getränk",
+      "source": "points-redeem",
+      "code": "LP-9EDCFC",
+      "status": "open",
+      "createdAt": "2026-03-14T13:11:15.538Z",
+      "usedAt": null,
+      "usedBy": null,
+      "meta": {
+        "rewardId": "r50"
+      }
+    },
+    {
+      "id": "fa3ab024-c049-439b-af94-4c77ebb564bf",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-506948",
+      "status": "open",
+      "createdAt": "2026-03-14T13:11:14.078Z",
+      "usedAt": null,
+      "usedBy": null,
+      "meta": {
+        "rewardId": "r15"
+      }
+    },
+    {
+      "id": "c0844e23-0908-4e40-9a81-087ba596c529",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "Kostenloses Getränk",
+      "source": "points-redeem",
+      "code": "LP-9222A0",
+      "status": "used",
+      "createdAt": "2026-03-14T12:44:18.067Z",
+      "usedAt": "2026-03-14T12:44:38.549Z",
+      "usedBy": "admin@example.com",
+      "meta": {
+        "rewardId": "r50"
+      }
+    },
+    {
+      "id": "03a579df-58ef-4050-9e7a-0222eb8bd626",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "Kostenloses Getränk",
+      "source": "points-redeem",
+      "code": "LP-D33257",
+      "status": "used",
+      "createdAt": "2026-03-14T12:44:15.289Z",
+      "usedAt": "2026-03-14T12:44:50.953Z",
+      "usedBy": "admin@example.com",
+      "meta": {
+        "rewardId": "r50"
+      }
+    },
+    {
+      "id": "6fa58963-8542-4f51-85a5-21871d582a20",
+      "userId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724",
+      "title": "Kostenloses Getränk",
+      "source": "points-redeem",
+      "code": "LP-8DC0D0",
+      "status": "used",
+      "createdAt": "2026-03-14T12:42:20.142Z",
+      "usedAt": "2026-03-14T12:43:27.590Z",
+      "usedBy": "admin@example.com",
+      "meta": {
+        "rewardId": "r50"
+      }
+    },
+    {
+      "id": "46a46b4e-7545-4ca7-a7d1-1205321d394f",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-6E678F",
+      "status": "open",
+      "createdAt": "2026-03-14T12:36:20.552Z",
+      "usedAt": null,
+      "usedBy": null,
+      "meta": {
+        "rewardId": "r15"
+      }
+    },
+    {
+      "id": "3dfb8165-0adf-446a-86ce-51025078e1ce",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-CE1B25",
+      "status": "open",
+      "createdAt": "2026-03-14T12:05:05.825Z",
+      "usedAt": null,
+      "usedBy": null,
+      "meta": {
+        "rewardId": "r15"
+      }
+    },
+    {
+      "id": "ec507e26-ff2e-4e3c-ace6-6d2658d86630",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-C59BDC",
+      "status": "used",
+      "createdAt": "2026-03-12T23:01:35.230Z",
+      "meta": {
+        "rewardId": "r15"
+      }
+    },
+    {
+      "id": "f9f5bb50-7622-4aa8-a5bb-450c02b6a768",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-DA7437",
+      "status": "used",
+      "createdAt": "2026-03-12T20:06:23.848Z",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "usedAt": "2026-03-13T19:28:57.988Z",
+      "usedBy": "admin@example.com"
+    },
+    {
+      "id": "4b963edf-3b44-4510-ba2f-08afd3f5402d",
+      "userId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0",
+      "title": "10% Rabatt",
+      "source": "points-redeem",
+      "code": "LP-5C4544",
+      "status": "used",
+      "createdAt": "2026-03-12T20:06:20.576Z",
+      "meta": {
+        "rewardId": "r15"
+      },
+      "usedAt": "2026-03-13T19:28:48.110Z",
+      "usedBy": "admin@example.com"
+    }
+  ],
+  "mails": [
+    {
+      "id": "b32cf1c0-707f-45a7-9180-b17a10dd68d4",
+      "to": "kunde@example.com",
+      "subject": "La Piazza Club – E-Mail bestätigen",
+      "body": "http://localhost:3000/verify?token=c71793ac-b172-4aba-94cd-99d24b24e51f",
+      "createdAt": "2026-03-14T12:39:59.571Z"
+    },
+    {
+      "id": "af2d8d4c-ad54-43dd-968e-ae0af2d64264",
+      "to": "admin@example.com",
+      "subject": "La Piazza Club – E-Mail bestätigen",
+      "body": "http://localhost:3000/verify?token=871538d4-ce57-49ff-b490-8caf28f672be",
+      "createdAt": "2026-03-12T19:32:33.352Z"
+    },
+    {
+      "id": "922dcf7d-ff99-45da-bebd-58eba066cb4f",
+      "to": "feistlennard@gmail.com",
+      "subject": "La Piazza Club – E-Mail bestätigen",
+      "body": "http://localhost:3000/verify?token=2de0685d-17eb-4e81-a352-ea841d529511",
+      "createdAt": "2026-03-12T19:29:43.937Z"
+    }
+  ],
+  "adminCodes": [
+    {
+      "id": "962bc318-fefb-4142-bf25-18fff723adbf",
+      "code": "FE46FC42",
+      "label": "As",
+      "addPoints": 50,
+      "addPizzas": 2,
+      "createdAt": "2026-03-12T21:22:32.312Z",
+      "createdBy": "admin@example.com",
+      "usedAt": null
+    },
+    {
+      "id": "1db0e6af-d184-4851-b910-142e240469a0",
+      "code": "92776014",
+      "label": "AAA",
+      "addPoints": 35,
+      "addPizzas": 0,
+      "createdAt": "2026-03-14T12:04:55.117Z",
+      "createdBy": "admin@example.com",
+      "usedAt": "2026-03-14T12:05:02.003Z",
+      "usedByUserId": "c18b21c4-2824-4f8e-b513-7c89a76e1ca0"
+    },
+    {
+      "id": "484028ce-1e26-41e3-8d6a-22aa919ec677",
+      "code": "F12BF373",
+      "label": "AAAa",
+      "addPoints": 50,
+      "addPizzas": 0,
+      "createdAt": "2026-03-14T12:42:00.069Z",
+      "createdBy": "admin@example.com",
+      "usedAt": "2026-03-14T12:42:14.320Z",
+      "usedByUserId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724"
+    },
+    {
+      "id": "25266a5f-563b-435e-a5fd-e187123a5cdd",
+      "code": "166F7E5F",
+      "label": "100",
+      "addPoints": 100,
+      "addPizzas": 0,
+      "createdAt": "2026-03-14T12:43:50.690Z",
+      "createdBy": "admin@example.com",
+      "usedAt": "2026-03-14T12:44:06.409Z",
+      "usedByUserId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724"
+    },
+    {
+      "id": "4164a6a7-839a-41f8-ada8-d216fa6db309",
+      "code": "CA33D150",
+      "label": "E",
+      "addPoints": 120,
+      "addPizzas": 0,
+      "createdAt": "2026-03-14T13:10:59.023Z",
+      "createdBy": "admin@example.com",
+      "usedAt": "2026-03-14T13:11:08.440Z",
+      "usedByUserId": "5aee1ba5-9eb4-4d43-8fea-01716d1bf724"
+    }
+  ],
+  "customTasks": [],
+  "scannerConfig": {
+    "active": true,
+    "label": "2 Pizzen bestellt",
+    "addPoints": 15,
+    "addPizzas": 2,
+    "oncePerDay": false
+  }
+}

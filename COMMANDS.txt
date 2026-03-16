@@ -1,0 +1,17 @@
+# Start
+cp .env.example .env
+npm install
+npm run dev
+
+# Im Browser
+http://localhost:3000
+
+# Dev-Mailbox
+http://localhost:3000/dev/mailbox
+
+# Handy im selben WLAN
+# ersetze 192.168.0.50 mit deiner lokalen IP
+http://192.168.0.50:3000
+
+# ngrok (optional für Kamera über HTTPS)
+ngrok http 3000

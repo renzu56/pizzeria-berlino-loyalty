@@ -1,0 +1,3 @@
+[2026-03-12T19:29:43.936Z] feistlennard@gmail.com -> http://localhost:3000/verify?token=2de0685d-17eb-4e81-a352-ea841d529511
+[2026-03-12T19:32:33.352Z] admin@example.com -> http://localhost:3000/verify?token=871538d4-ce57-49ff-b490-8caf28f672be
+[2026-03-14T12:39:59.571Z] kunde@example.com -> http://localhost:3000/verify?token=c71793ac-b172-4aba-94cd-99d24b24e51f

@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+enum UserRole {
+  admin
+  customer
+}
+
+enum SubmissionType {
+  review
+  tiktok
+  custom
+}
+
+enum SubmissionStatus {
+  pending
+  approved
+  rejected
+}
+
+enum VoucherStatus {
+  open
+  used
+}
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  role         UserRole    @default(customer)
+  verified     Boolean     @default(false)
+  verifyToken  String?     @unique
+  walletToken  String      @unique
+  points       Int         @default(0)
+  pizzaCount   Int         @default(0)
+  createdAt    DateTime    @default(now())
+
+  taskStates   TaskState[]
+  submissions  Submission[]
+  events       Event[]
+  vouchers     Voucher[]
+}
+
+model TaskState {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  clickedAt DateTime?
+  claimedAt DateTime?
+  status    String   @default("idle")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+}
+
+model Submission {
+  id           String           @id @default(uuid())
+  userId        String
+  type          SubmissionType
+  taskId        String?
+  link          String
+  status        SubmissionStatus @default(pending)
+  rewardPoints  Int              @default(0)
+  note          String
+  createdAt     DateTime         @default(now())
+  reviewedAt    DateTime?
+  reviewedBy    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, type])
+}
+
+model Event {
+  id        String   @id @default(uuid())
+  userId     String
+  type       String
+  points     Int      @default(0)
+  pizzas     Int      @default(0)
+  note       String
+  meta       Json?
+  createdAt  DateTime @default(now())
+  dayKey     String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, dayKey])
+}
+
+model Voucher {
+  id        String        @id @default(uuid())
+  userId     String
+  title      String
+  source     String
+  code       String        @unique
+  status     VoucherStatus @default(open)
+  createdAt  DateTime      @default(now())
+  usedAt     DateTime?
+  usedBy     String?
+  meta       Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model AdminCode {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  label        String
+  addPoints    Int      @default(0)
+  addPizzas    Int      @default(0)
+  createdAt    DateTime @default(now())
+  createdBy    String
+  usedAt       DateTime?
+  usedByUserId String?
+}
+
+model CustomTask {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  targetUrl   String?
+  points      Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  createdBy   String
+}
+
+model ScannerConfig {
+  id         Int     @id @default(1)
+  active     Boolean @default(true)
+  label      String  @default("Daily Check-in")
+  addPoints  Int     @default(10)
+  addPizzas  Int     @default(0)
+  oncePerDay Boolean @default(true)
+}

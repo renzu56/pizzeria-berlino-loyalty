@@ -1,0 +1,26 @@
+{
+  "name": "pizzeria-berlino-loyalty",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Loyalty MVP with wallet QR scanner, admin scanner config, tasks and rewards",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "postinstall": "prisma generate",
+    "db:deploy": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.2",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "nodemailer": "^6.10.1",
+    "pg": "^8.20.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.2"
+  }
+}
