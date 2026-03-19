@@ -24,7 +24,18 @@ app.use("/static", express.static(path.join(__dirname, "public")));
 
 const DEV_AUTO_VERIFY = process.env.DEV_AUTO_VERIFY === "true";
 const PORT = Number(process.env.PORT || 3000);
-const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
+
+function normalizeAppUrl(rawValue, port) {
+  const fallback = `http://localhost:${port}`;
+  const value = String(rawValue || "").trim().replace(/\/$/, "");
+  if (!value) return fallback;
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const isLocal = /^(localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?$/i.test(value);
+  return `${isLocal ? "http" : "https"}://${value}`;
+}
+
+const APP_URL = normalizeAppUrl(process.env.APP_URL, PORT);
 const BRAND_NAME = process.env.BRAND_NAME || "Pizza Berlino";
 const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "Rewards & Vorteile";
 const BRAND_LOGO_FILENAME = process.env.BRAND_LOGO_FILENAME || "1773058332279.jfif";
@@ -76,6 +87,10 @@ function nowDate() {
 
 function nowIso() {
   return nowDate().toISOString();
+}
+
+function absoluteUrl(pathname) {
+  return new URL(pathname, `${APP_URL}/`).toString();
 }
 
 function dayKey(date = new Date()) {
@@ -307,20 +322,38 @@ async function addEvent(userId, type, points, pizzas, note, meta = {}, tx = pris
   return event;
 }
 
+let mailer = null;
+
 function createMailer() {
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.SMTP_FROM) {
     throw new Error("SMTP_NOT_CONFIGURED");
   }
 
-  return nodemailer.createTransport({
+  if (mailer) return mailer;
+
+  mailer = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: String(process.env.SMTP_SECURE || "false") === "true",
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 15000),
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
     }
   });
+
+  return mailer;
+}
+
+async function verifyMailerConnection() {
+  try {
+    await createMailer().verify();
+    console.log("SMTP connection verified");
+  } catch (error) {
+    console.error("SMTP verify failed", error);
+  }
 }
 
 async function sendVerificationMail(user, verifyLink) {
@@ -753,36 +786,58 @@ app.post("/register", async (req, res) => {
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
+  if (existing?.verified) {
     return res.redirect("/register?error=E-Mail+bereits+registriert");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const verifyToken = uid();
+  const verifyToken = DEV_AUTO_VERIFY ? null : uid();
 
-  const user = await prisma.user.create({
-    data: {
-      id: uid(),
-      name,
-      email,
-      passwordHash,
-      role: ADMIN_EMAILS.has(email) ? "admin" : "customer",
-      verified: false,
-      verifyToken,
-      walletToken: `member_${crypto.randomBytes(10).toString("hex")}`,
-      points: 0,
-      pizzaCount: 0,
-      createdAt: nowDate()
-    }
-  });
+  let user;
+  if (existing && !existing.verified) {
+    user = await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        name,
+        passwordHash,
+        role: ADMIN_EMAILS.has(email) ? "admin" : existing.role,
+        verified: DEV_AUTO_VERIFY,
+        verifyToken
+      }
+    });
+  } else {
+    user = await prisma.user.create({
+      data: {
+        id: uid(),
+        name,
+        email,
+        passwordHash,
+        role: ADMIN_EMAILS.has(email) ? "admin" : "customer",
+        verified: DEV_AUTO_VERIFY,
+        verifyToken,
+        walletToken: `member_${crypto.randomBytes(10).toString("hex")}`,
+        points: 0,
+        pizzaCount: 0,
+        createdAt: nowDate()
+      }
+    });
+  }
+
+  if (DEV_AUTO_VERIFY) {
+    return res.redirect("/login?success=Konto+erstellt.+Du+kannst+dich+jetzt+einloggen");
+  }
 
   try {
-    const verifyLink = `${APP_URL}/verify?token=${encodeURIComponent(verifyToken)}`;
+    const verifyLink = absoluteUrl(`/verify?token=${encodeURIComponent(verifyToken)}`);
     await sendVerificationMail(user, verifyLink);
-    return res.redirect("/login?success=Konto+erstellt.+Bitte+E-Mail+bestätigen");
+    return res.redirect(
+      existing
+        ? "/login?success=Bestätigungslink+erneut+gesendet"
+        : "/login?success=Konto+erstellt.+Bitte+E-Mail+bestätigen"
+    );
   } catch (error) {
     console.error("Verification mail failed", error);
-    return res.redirect("/login?error=Bestätigungsmail+konnte+nicht+gesendet+werden");
+    return res.redirect("/login?error=Bestätigungsmail+konnte+nicht+gesendet+werden.+Bitte+über+Login+erneut+anfordern");
   }
 });
 
@@ -808,7 +863,7 @@ app.post("/resend-verification", async (req, res) => {
   });
 
   try {
-    await sendVerificationMail(updated, `${APP_URL}/verify?token=${encodeURIComponent(verifyToken)}`);
+    await sendVerificationMail(updated, absoluteUrl(`/verify?token=${encodeURIComponent(verifyToken)}`));
     return res.redirect("/login?success=Bestätigungslink+erneut+gesendet");
   } catch (error) {
     console.error("Resend verification mail failed", error);
@@ -1572,6 +1627,7 @@ app.get("/account", authRequired, async (req, res) => {
   `;
 
   res.send(page({
+    title: "Kundenkonto",
     user,
     body,
     head: accountHead,
@@ -3021,6 +3077,10 @@ app.listen(PORT, "0.0.0.0", async () => {
     await ensureScannerConfig();
   } catch (error) {
     console.error("Scanner config bootstrap failed", error);
+  }
+
+  if (!DEV_AUTO_VERIFY) {
+    await verifyMailerConnection();
   }
 
   console.log(`${BRAND_NAME} läuft auf ${APP_URL}`);
