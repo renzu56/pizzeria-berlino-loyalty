@@ -3,7 +3,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import QRCode from "qrcode";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import path from "path";
 import crypto from "crypto";
 import fs from "fs";
@@ -24,6 +24,8 @@ app.use("/static", express.static(path.join(__dirname, "public")));
 
 const DEV_AUTO_VERIFY = process.env.DEV_AUTO_VERIFY === "true";
 const PORT = Number(process.env.PORT || 3000);
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 function normalizeAppUrl(rawValue, port) {
   const fallback = `http://localhost:${port}`;
@@ -322,46 +324,27 @@ async function addEvent(userId, type, points, pizzas, note, meta = {}, tx = pris
   return event;
 }
 
-let mailer = null;
-
-function createMailer() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.SMTP_FROM) {
-    throw new Error("SMTP_NOT_CONFIGURED");
+function assertResendConfigured() {
+  if (!RESEND_API_KEY || !process.env.SMTP_FROM) {
+    throw new Error("RESEND_NOT_CONFIGURED");
   }
-
-  if (mailer) return mailer;
-
-  mailer = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
-    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
-    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
-    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 15000),
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
-
-  return mailer;
 }
 
 async function verifyMailerConnection() {
   try {
-    await createMailer().verify();
-    console.log("SMTP connection verified");
+    assertResendConfigured();
+    console.log("Resend API configured");
   } catch (error) {
-    console.error("SMTP verify failed", error);
+    console.error("Resend config check failed", error);
   }
 }
 
 async function sendVerificationMail(user, verifyLink) {
-  const transporter = createMailer();
+  assertResendConfigured();
 
-  await transporter.sendMail({
+  const { error } = await resend.emails.send({
     from: process.env.SMTP_FROM,
-    to: user.email,
+    to: [user.email],
     subject: `${BRAND_NAME} – E-Mail bestätigen`,
     html: `
       <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#241c16;max-width:580px;margin:0 auto;padding:24px">
@@ -377,6 +360,10 @@ async function sendVerificationMail(user, verifyLink) {
       </div>
     `
   });
+
+  if (error) {
+    throw error;
+  }
 }
 
 function renderFlash(req) {
