@@ -44,6 +44,7 @@ const BRAND_LOGO_FILENAME = process.env.BRAND_LOGO_FILENAME || "1773058332279.jf
 const brandLogoPath = path.join(__dirname, BRAND_LOGO_FILENAME);
 const SESSION_SECRET = process.env.SESSION_SECRET || "change_me_super_secret";
 const STAFF_PIN = process.env.STAFF_PIN || "2468";
+const PASSWORD_RESET_EXPIRES_MINUTES = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || 30);
 
 const INSTAGRAM_URL = process.env.INSTAGRAM_URL || "https://www.instagram.com/pizza_berlino/";
 const REVIEW_URL = process.env.REVIEW_URL || "https://g.page/r/CcF9V1iR1Es9EBM/review";
@@ -139,6 +140,25 @@ function verifySession(token) {
   } catch {
     return null;
   }
+}
+
+function signTimedToken(payload, expiresMinutes = 30) {
+  return signSession({
+    ...payload,
+    exp: Date.now() + Math.max(1, Number(expiresMinutes || 30)) * 60 * 1000
+  });
+}
+
+function verifyTimedToken(token, expectedPurpose) {
+  const payload = verifySession(token);
+  if (!payload) return null;
+  if (expectedPurpose && payload.purpose !== expectedPurpose) return null;
+  if (!payload.exp || Number(payload.exp) < Date.now()) return null;
+  return payload;
+}
+
+function passwordResetFingerprint(user) {
+  return crypto.createHash("sha256").update(String(user?.passwordHash || "")).digest("hex").slice(0, 24);
 }
 
 async function getCurrentUser(req) {
@@ -357,6 +377,33 @@ async function sendVerificationMail(user, verifyLink) {
         </p>
         <p style="margin:0 0 8px;color:#6d6258">Falls der Button nicht funktioniert, nutze diesen Link:</p>
         <p style="margin:0;color:#6d6258;word-break:break-all">${escapeHtml(verifyLink)}</p>
+      </div>
+    `
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function sendPasswordResetMail(user, resetLink) {
+  assertResendConfigured();
+
+  const { error } = await resend.emails.send({
+    from: process.env.SMTP_FROM,
+    to: [user.email],
+    subject: `${BRAND_NAME} – Passwort zurücksetzen`,
+    html: `
+      <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#241c16;max-width:580px;margin:0 auto;padding:24px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#bf5a34;margin-bottom:8px">${escapeHtml(BRAND_SUBTITLE)}</div>
+        <h1 style="margin:0 0 12px;font-size:28px;line-height:1.1">Passwort zurücksetzen</h1>
+        <p style="margin:0 0 12px">Hallo ${escapeHtml(user.name)},</p>
+        <p style="margin:0 0 20px">mit dem Button unten kannst du ein neues Passwort festlegen.</p>
+        <p style="margin:0 0 20px">
+          <a href="${resetLink}" style="display:inline-block;padding:12px 16px;background:#bf5a34;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:700">Neues Passwort festlegen</a>
+        </p>
+        <p style="margin:0 0 8px;color:#6d6258">Der Link ist ${PASSWORD_RESET_EXPIRES_MINUTES} Minuten gültig.</p>
+        <p style="margin:0;color:#6d6258;word-break:break-all">${escapeHtml(resetLink)}</p>
       </div>
     `
   });
@@ -881,22 +928,68 @@ app.get("/login", async (req, res) => {
   const user = await getCurrentUser(req);
   if (user) return res.redirect("/account");
 
+  const loginHead = `
+    <style>
+      .login-utilities {
+        display:grid;
+        gap:14px;
+      }
+
+      .utility-box {
+        padding:14px;
+        border-radius:18px;
+        background:#fffaf6;
+        border:1px solid rgba(191,90,52,.12);
+      }
+
+      .utility-box h4 {
+        margin:0 0 6px;
+        font-size:16px;
+      }
+
+      .utility-box p {
+        margin:0 0 12px;
+        color:#6e6258;
+      }
+
+      .form-helper-row {
+        margin:-2px 0 12px;
+        display:flex;
+        justify-content:flex-end;
+      }
+
+      .form-helper-row a {
+        color:#9b4d27;
+        text-decoration:none;
+        font-weight:600;
+      }
+    </style>
+  `;
+
   const body = `
     ${renderFlash(req)}
     <section class="grid two">
       <form class="card form-card" method="post" action="/login">
         <h3>Einloggen</h3>
-        <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" /></label>
+        <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" autocomplete="email" /></label>
         <label>Passwort<input type="password" name="password" required autocomplete="current-password" /></label>
+        <div class="form-helper-row"><a href="/forgot-password">Passwort vergessen?</a></div>
         <button class="btn btn-primary" type="submit">Login</button>
       </form>
 
-      <form class="card form-card" method="post" action="/resend-verification">
-        <h3>Bestätigungslink erneut senden</h3>
-        <p>Falls deine E-Mail noch nicht angekommen ist, kannst du hier einen neuen Link anfordern.</p>
-        <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" /></label>
-        <button class="btn btn-secondary" type="submit">Link anfordern</button>
-      </form>
+      <div class="login-utilities">
+        <form class="card form-card" method="post" action="/resend-verification">
+          <h3>Bestätigungslink</h3>
+          <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" autocomplete="email" /></label>
+          <button class="btn btn-secondary" type="submit">Erneut senden</button>
+        </form>
+
+        <div class="card utility-box">
+          <h4>Neues Passwort</h4>
+          <p>Reset-Link per Mail anfordern.</p>
+          <a class="btn btn-ghost" href="/forgot-password">Reset öffnen</a>
+        </div>
+      </div>
     </section>
   `;
 
@@ -904,7 +997,8 @@ app.get("/login", async (req, res) => {
     title: "Login",
     user,
     body,
-    description: "Mit deinem Pizza-Berlino-Konto anmelden."
+    description: "Mit deinem Pizza-Berlino-Konto anmelden.",
+    head: loginHead
   }));
 });
 
@@ -921,6 +1015,147 @@ app.post("/login", async (req, res) => {
 
   setSession(res, user);
   return res.redirect("/account");
+});
+
+app.get("/forgot-password", async (req, res) => {
+  const user = await getCurrentUser(req);
+
+  const body = `
+    ${renderFlash(req)}
+    <section class="grid two">
+      <form class="card form-card" method="post" action="/forgot-password">
+        <h3>Passwort vergessen</h3>
+        <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" autocomplete="email" /></label>
+        <button class="btn btn-primary" type="submit">Reset-Link senden</button>
+      </form>
+
+      <div class="card">
+        <h3>Schnell zurück</h3>
+        <div class="button-row">
+          <a class="btn btn-secondary" href="/login">Zum Login</a>
+          ${user ? `<a class="btn btn-ghost" href="/account">Zum Konto</a>` : `<a class="btn btn-ghost" href="/register">Neu registrieren</a>`}
+        </div>
+      </div>
+    </section>
+  `;
+
+  res.send(page({
+    title: "Passwort vergessen",
+    user,
+    body,
+    description: "Link anfordern und neues Passwort setzen."
+  }));
+});
+
+app.post("/forgot-password", async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+
+  if (!email) {
+    return res.redirect("/forgot-password?error=Bitte+eine+E-Mail-Adresse+eingeben");
+  }
+
+  try {
+    assertResendConfigured();
+  } catch {
+    return res.redirect("/forgot-password?error=Reset-Mail+aktuell+nicht+verfügbar");
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (user?.verified) {
+    const token = signTimedToken({
+      purpose: "password-reset",
+      userId: user.id,
+      email: user.email,
+      fp: passwordResetFingerprint(user)
+    }, PASSWORD_RESET_EXPIRES_MINUTES);
+
+    const resetLink = absoluteUrl(`/reset-password?token=${encodeURIComponent(token)}`);
+
+    try {
+      await sendPasswordResetMail(user, resetLink);
+    } catch (error) {
+      console.error("Password reset mail failed", error);
+    }
+  }
+
+  return res.redirect("/forgot-password?success=Wenn+ein+Konto+existiert,+wurde+eine+Mail+gesendet");
+});
+
+app.get("/reset-password", async (req, res) => {
+  const user = await getCurrentUser(req);
+  const token = String(req.query.token || "").trim();
+  const payload = verifyTimedToken(token, "password-reset");
+
+  if (!payload?.userId || !payload?.email || !payload?.fp) {
+    return res.redirect("/forgot-password?error=Reset-Link+ungültig+oder+abgelaufen");
+  }
+
+  const resetUser = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!resetUser || resetUser.email !== payload.email || passwordResetFingerprint(resetUser) !== payload.fp) {
+    return res.redirect("/forgot-password?error=Reset-Link+ungültig+oder+abgelaufen");
+  }
+
+  const body = `
+    ${renderFlash(req)}
+    <section class="grid two">
+      <form class="card form-card" method="post" action="/reset-password">
+        <h3>Neues Passwort</h3>
+        <input type="hidden" name="token" value="${escapeHtml(token)}" />
+        <label>Neues Passwort<input type="password" name="password" minlength="6" required autocomplete="new-password" /></label>
+        <label>Passwort wiederholen<input type="password" name="passwordConfirm" minlength="6" required autocomplete="new-password" /></label>
+        <button class="btn btn-primary" type="submit">Passwort speichern</button>
+      </form>
+
+      <div class="card">
+        <h3>${escapeHtml(resetUser.email)}</h3>
+        <div class="list-simple">
+          <div>Link gültig für kurze Zeit</div>
+          <div>Mindestens 6 Zeichen</div>
+          <div>Danach direkt einloggen</div>
+        </div>
+      </div>
+    </section>
+  `;
+
+  res.send(page({
+    title: "Passwort zurücksetzen",
+    user,
+    body,
+    description: "Neues Passwort festlegen."
+  }));
+});
+
+app.post("/reset-password", async (req, res) => {
+  const token = String(req.body.token || "").trim();
+  const password = String(req.body.password || "");
+  const passwordConfirm = String(req.body.passwordConfirm || "");
+  const payload = verifyTimedToken(token, "password-reset");
+
+  if (!payload?.userId || !payload?.email || !payload?.fp) {
+    return res.redirect("/forgot-password?error=Reset-Link+ungültig+oder+abgelaufen");
+  }
+
+  if (password.length < 6) {
+    return res.redirect(`/reset-password?token=${encodeURIComponent(token)}&error=Passwort+zu+kurz`);
+  }
+
+  if (password !== passwordConfirm) {
+    return res.redirect(`/reset-password?token=${encodeURIComponent(token)}&error=Passwörter+stimmen+nicht+überein`);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user || user.email !== payload.email || passwordResetFingerprint(user) !== payload.fp) {
+    return res.redirect("/forgot-password?error=Reset-Link+ungültig+oder+abgelaufen");
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash }
+  });
+
+  return res.redirect("/login?success=Passwort+aktualisiert.+Du+kannst+dich+jetzt+einloggen");
 });
 
 app.post("/logout", (req, res) => {
@@ -1113,7 +1348,6 @@ app.get("/account", authRequired, async (req, res) => {
     actionCards.push(renderSubmissionTaskCard({
       title: "TikTok Beitrag",
       description: "Link einreichen, danach prüft das Team deinen Beitrag.",
-      submission: tiktokSubmission,
       href: "",
       hrefLabel: "",
       formAction: "/tasks/tiktok",
@@ -1472,14 +1706,54 @@ app.get("/account", authRequired, async (req, res) => {
         color:#8a7b6f;
       }
 
+      .account-identity-card .identity-list {
+        display:grid;
+        gap:12px;
+      }
+
+      .account-identity-card .identity-row {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        padding:14px 0;
+        border-bottom:1px dashed rgba(123,111,100,.22);
+      }
+
+      .account-identity-card .identity-row:last-child {
+        border-bottom:none;
+        padding-bottom:0;
+      }
+
+      .account-identity-card .identity-row strong {
+        color:#6a5f55;
+        font-size:14px;
+      }
+
+      .account-identity-card .identity-row span {
+        color:#241c16;
+        font-weight:600;
+        text-align:right;
+      }
+
+      .security-card {
+        border:1px solid rgba(191,90,52,.12);
+      }
+
       @media (max-width: 920px) {
         .dashboard-hero,
         .progress-card-inner {
           grid-template-columns:1fr;
         }
 
-        .task-meta {
+        .task-meta,
+        .account-identity-card .identity-row {
           flex-direction:column;
+          align-items:flex-start;
+        }
+
+        .account-identity-card .identity-row span {
+          text-align:left;
         }
       }
     </style>
@@ -1611,6 +1885,38 @@ app.get("/account", authRequired, async (req, res) => {
         ${eventsHtml}
       </div>
     </section>
+
+    <section class="grid two">
+      <div class="card account-identity-card">
+        <div class="section-head">
+          <h3>Profil</h3>
+          <p>Deine Basisdaten.</p>
+        </div>
+
+        <div class="identity-list">
+          <div class="identity-row">
+            <strong>Name</strong>
+            <span>${escapeHtml(user.name)}</span>
+          </div>
+          <div class="identity-row">
+            <strong>E-Mail</strong>
+            <span>${escapeHtml(user.email)}</span>
+          </div>
+        </div>
+      </div>
+
+      <form class="card form-card security-card" method="post" action="/account/change-password">
+        <div class="section-head">
+          <h3>Passwort ändern</h3>
+          <p>Direkt in deinem Konto.</p>
+        </div>
+
+        <label>Aktuelles Passwort<input type="password" name="currentPassword" required autocomplete="current-password" /></label>
+        <label>Neues Passwort<input type="password" name="newPassword" minlength="6" required autocomplete="new-password" /></label>
+        <label>Neues Passwort wiederholen<input type="password" name="newPasswordConfirm" minlength="6" required autocomplete="new-password" /></label>
+        <button class="btn btn-primary" type="submit">Passwort speichern</button>
+      </form>
+    </section>
   `;
 
   res.send(page({
@@ -1620,6 +1926,41 @@ app.get("/account", authRequired, async (req, res) => {
     head: accountHead,
     pageClass: "account-dashboard-page"
   }));
+});
+
+app.post("/account/change-password", authRequired, async (req, res) => {
+  const user = req.user;
+  const currentPassword = String(req.body.currentPassword || "");
+  const newPassword = String(req.body.newPassword || "");
+  const newPasswordConfirm = String(req.body.newPasswordConfirm || "");
+
+  const currentUser = await prisma.user.findUnique({ where: { id: user.id } });
+  if (!currentUser) return res.redirect("/account?error=Konto+nicht+gefunden");
+
+  const ok = await bcrypt.compare(currentPassword, currentUser.passwordHash);
+  if (!ok) return res.redirect("/account?error=Aktuelles+Passwort+falsch");
+
+  if (newPassword.length < 6) {
+    return res.redirect("/account?error=Neues+Passwort+zu+kurz");
+  }
+
+  if (newPassword !== newPasswordConfirm) {
+    return res.redirect("/account?error=Neue+Passwörter+stimmen+nicht+überein");
+  }
+
+  const sameAsOld = await bcrypt.compare(newPassword, currentUser.passwordHash);
+  if (sameAsOld) {
+    return res.redirect("/account?error=Bitte+ein+anderes+Passwort+verwenden");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const updatedUser = await prisma.user.update({
+    where: { id: currentUser.id },
+    data: { passwordHash }
+  });
+
+  setSession(res, updatedUser);
+  return res.redirect("/account?success=Passwort+aktualisiert");
 });
 
 app.post("/account/redeem-code", authRequired, async (req, res) => {
@@ -1721,6 +2062,7 @@ app.post("/account/redeem-reward", authRequired, async (req, res) => {
     res.redirect("/account?error=Reward+konnte+nicht+eingelöst+werden");
   }
 });
+
 
 app.get("/instagram-task", authRequired, async (req, res) => {
   const user = req.user;
@@ -2322,7 +2664,8 @@ app.get("/admin", adminRequired, async (req, res) => {
     users,
     pendingSubmissions,
     customTasks,
-    recentCodes
+    recentCodes,
+    voucherCounts
   ] = await Promise.all([
     ensureScannerConfig(),
     prisma.user.count(),
@@ -2335,245 +2678,683 @@ app.get("/admin", adminRequired, async (req, res) => {
       orderBy: { createdAt: "desc" }
     }),
     prisma.customTask.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.adminCode.findMany({ orderBy: { createdAt: "desc" }, take: 10 })
+    prisma.adminCode.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
+    prisma.voucher.groupBy({
+      by: ["userId"],
+      where: { status: "open" },
+      _count: { _all: true }
+    })
   ]);
+
+  const voucherCountMap = new Map(voucherCounts.map(entry => [entry.userId, entry._count._all]));
+
+  const adminHead = `
+    <style>
+      .admin-dashboard-page .page {
+        display:grid;
+        gap:18px;
+      }
+
+      .admin-shell {
+        display:grid;
+        gap:18px;
+      }
+
+      .admin-top-grid {
+        display:grid;
+        grid-template-columns:minmax(0,1fr) minmax(280px,320px);
+        gap:18px;
+        align-items:stretch;
+      }
+
+      .admin-hero-card,
+      .admin-pin-card,
+      .admin-surface,
+      .admin-list-card,
+      .admin-table-card {
+        border:1px solid rgba(191,90,52,.12);
+        box-shadow:0 14px 32px rgba(56,31,13,.05);
+      }
+
+      .admin-hero-card {
+        padding:22px;
+        background:linear-gradient(135deg,#fff8f2 0%,#fffdf9 100%);
+      }
+
+      .admin-hero-card h2 {
+        margin:4px 0 8px;
+        font-size:clamp(28px,4vw,36px);
+        line-height:1.05;
+      }
+
+      .admin-hero-card p {
+        margin:0;
+        color:#6f6257;
+        max-width:52ch;
+      }
+
+      .admin-hero-copy {
+        display:grid;
+        gap:16px;
+      }
+
+      .admin-stats-inline {
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:12px;
+      }
+
+      .admin-stat-box {
+        padding:14px 16px;
+        border-radius:18px;
+        background:#fff;
+        border:1px solid rgba(191,90,52,.1);
+      }
+
+      .admin-stat-box strong {
+        display:block;
+        font-size:28px;
+        line-height:1;
+        margin-bottom:6px;
+      }
+
+      .admin-stat-box span {
+        color:#76685c;
+        font-size:14px;
+      }
+
+      .admin-pin-card {
+        padding:18px;
+        display:grid;
+        gap:14px;
+        align-content:start;
+        background:#fff;
+      }
+
+      .admin-pin-card h3 {
+        margin:0;
+        font-size:18px;
+      }
+
+      .admin-pin-card p {
+        margin:0;
+        color:#6f6257;
+      }
+
+      .admin-pin-card input {
+        height:52px;
+        font-size:18px;
+      }
+
+      .admin-nav-card {
+        position:sticky;
+        top:14px;
+        z-index:2;
+        padding:12px;
+        border-radius:22px;
+        background:rgba(255,250,246,.88);
+        backdrop-filter:blur(10px);
+        border:1px solid rgba(191,90,52,.12);
+        box-shadow:0 12px 28px rgba(56,31,13,.05);
+      }
+
+      .admin-tab-row {
+        display:flex;
+        flex-wrap:wrap;
+        gap:10px;
+      }
+
+      .admin-tab-btn {
+        min-height:46px;
+        padding-inline:16px;
+      }
+
+      .admin-panel {
+        display:grid;
+        gap:18px;
+      }
+
+      .admin-grid-two {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:18px;
+      }
+
+      .admin-grid-three {
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:18px;
+      }
+
+      .admin-surface {
+        background:#fff;
+        border-radius:24px;
+        padding:18px;
+      }
+
+      .admin-surface .section-head {
+        margin-bottom:14px;
+      }
+
+      .admin-surface .section-head p {
+        margin:0;
+      }
+
+      .admin-surface h3,
+      .admin-surface h4 {
+        margin:0;
+      }
+
+      .admin-mini-note {
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        margin-top:12px;
+        padding:8px 10px;
+        border-radius:999px;
+        background:#fff7f1;
+        border:1px solid rgba(191,90,52,.12);
+        color:#84553b;
+        font-size:13px;
+      }
+
+      .admin-status-box {
+        margin-top:14px;
+        padding:12px 14px;
+        border-radius:16px;
+        background:#fffaf6;
+        border:1px solid rgba(191,90,52,.12);
+      }
+
+      .reader {
+        min-height:320px;
+        border-radius:20px;
+        background:
+          linear-gradient(180deg,rgba(191,90,52,.03) 0%,rgba(255,255,255,.6) 100%),
+          #fffaf6;
+        border:1px dashed rgba(191,90,52,.22);
+        overflow:hidden;
+      }
+
+      .admin-list-card .event-list,
+      .admin-table-card .table-wrap,
+      .admin-surface .event-list {
+        margin-top:10px;
+      }
+
+      .submission-row,
+      .event-row,
+      .action-row {
+        display:flex;
+        justify-content:space-between;
+        gap:14px;
+        padding:14px 0;
+        border-bottom:1px dashed rgba(123,111,100,.22);
+      }
+
+      .submission-row:last-child,
+      .event-row:last-child,
+      .action-row:last-child {
+        border-bottom:none;
+        padding-bottom:0;
+      }
+
+      .submission-row strong,
+      .event-row strong,
+      .action-row strong {
+        display:block;
+        margin-bottom:4px;
+      }
+
+      .submission-row p,
+      .submission-row small,
+      .event-row small,
+      .action-row small {
+        margin:0;
+        color:#7a6d61;
+      }
+
+      .submission-row p a,
+      .action-row a {
+        color:#9b4d27;
+        text-decoration:none;
+        word-break:break-word;
+      }
+
+      .button-stack {
+        display:grid;
+        gap:8px;
+        align-content:start;
+      }
+
+      .chip {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:8px 10px;
+        border-radius:999px;
+        background:#fff7f1;
+        border:1px solid rgba(191,90,52,.12);
+        color:#84553b;
+        font-size:13px;
+        white-space:nowrap;
+      }
+
+      .voucher-select-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+        gap:12px;
+      }
+
+      .voucher-select-card {
+        padding:16px;
+        border-radius:18px;
+        background:#fffaf6;
+        border:1px solid rgba(191,90,52,.12);
+        display:grid;
+        gap:14px;
+      }
+
+      .voucher-select-top {
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+      }
+
+      .voucher-code-line {
+        margin-top:6px;
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+        color:#2d241d;
+      }
+
+      .admin-table-card table {
+        width:100%;
+        border-collapse:collapse;
+      }
+
+      .admin-table-card th,
+      .admin-table-card td {
+        padding:12px 10px;
+        border-bottom:1px solid rgba(123,111,100,.14);
+        vertical-align:top;
+        text-align:left;
+      }
+
+      .admin-table-card th {
+        font-size:13px;
+        color:#7d7064;
+        font-weight:700;
+      }
+
+      .admin-table-card td small {
+        display:block;
+        color:#84776d;
+        margin-top:4px;
+      }
+
+      .admin-empty {
+        padding:16px;
+        border-radius:18px;
+        background:#fbfaf8;
+        border:1px dashed rgba(123,111,100,.22);
+        color:#7d7064;
+      }
+
+      .scanner-summary-card {
+        display:grid;
+        gap:14px;
+      }
+
+      .admin-compact-form {
+        display:grid;
+        gap:10px;
+      }
+
+      .admin-compact-form .check-row {
+        margin-top:2px;
+      }
+
+      .admin-inline-top {
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        align-items:flex-start;
+      }
+
+      @media (max-width: 1040px) {
+        .admin-top-grid,
+        .admin-grid-two,
+        .admin-grid-three {
+          grid-template-columns:1fr;
+        }
+
+        .admin-stats-inline {
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .submission-row,
+        .event-row,
+        .action-row,
+        .voucher-select-top,
+        .admin-inline-top {
+          flex-direction:column;
+        }
+
+        .admin-nav-card {
+          top:10px;
+        }
+      }
+    </style>
+  `;
 
   const body = `
     ${renderFlash(req)}
 
-    <section class="summary-grid">
-      ${statCard(userCount, "Kunden")}
-      ${statCard(pendingCount, "Offene Prüfungen")}
-      ${statCard(openVoucherCount, "Voucher offen")}
-    </section>
+    <div class="admin-shell">
+      <section class="admin-top-grid">
+        <div class="card admin-hero-card">
+          <div class="eyebrow">Admin</div>
+          <div class="admin-hero-copy">
+            <div>
+              <h2>Alles an einem Ort</h2>
+              <p>Check-in, Scanner, Voucher und Prüfungen in einer klaren Oberfläche.</p>
+            </div>
 
-    <section class="card">
-      <div class="section-head">
-        <h3>Admin Zentrale</h3>
-        <p>Eine Seite für Check-ins, individuelle Buchungen, Gutschein-Einlösungen und den Managing Hub.</p>
-      </div>
-
-      <label>Staff PIN<input id="adminSharedPin" type="password" placeholder="PIN" autocomplete="one-time-code" /></label>
-
-      <div class="button-row" id="adminSectionSwitch">
-        <button class="btn btn-primary adminTabBtn" type="button" data-target="panel-checkin">1. Check-In Scanner</button>
-        <button class="btn btn-ghost adminTabBtn" type="button" data-target="panel-custom">2. Individueller Scanner</button>
-        <button class="btn btn-ghost adminTabBtn" type="button" data-target="panel-voucher">3. Gutschein Scanner</button>
-        <button class="btn btn-ghost adminTabBtn" type="button" data-target="panel-managing">4. Managing Hub</button>
-      </div>
-    </section>
-
-    <section class="card admin-panel" id="panel-checkin">
-      <div class="section-head">
-        <h3>Check-In Scanner</h3>
-        <p>Daily Check-in mit festem Ablauf: +10 Punkte, nur 1x pro Tag.</p>
-      </div>
-
-      <div class="grid two">
-        <div class="card">
-          <div class="button-row">
-            <button class="btn btn-primary" id="startCheckinScan">Scanner starten</button>
-            <button class="btn btn-secondary" id="stopCheckinScan" disabled>Stoppen</button>
-          </div>
-          <div id="checkinScanStatus" class="status-line">Bereit.</div>
-          <div class="task-block">
-            <strong>Fixe Buchung</strong>
-            <p class="muted-text">${escapeHtml(scannerConfigSummary(DAILY_CHECKIN_CONFIG))}</p>
+            <div class="admin-stats-inline">
+              <div class="admin-stat-box">
+                <strong>${userCount}</strong>
+                <span>Kunden</span>
+              </div>
+              <div class="admin-stat-box">
+                <strong>${pendingCount}</strong>
+                <span>Prüfungen</span>
+              </div>
+              <div class="admin-stat-box">
+                <strong>${openVoucherCount}</strong>
+                <span>Voucher offen</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="card">
-          <h3>Kamera</h3>
-          <div id="readerCheckin" class="reader"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Letzte Check-ins</h3>
-        <div id="checkinLog" class="event-list"></div>
-      </div>
-    </section>
-
-    <section class="card admin-panel" id="panel-custom" hidden>
-      <div class="section-head">
-        <h3>Individueller Scanner</h3>
-        <p>Flexible Buchung für Sonderfälle, Bestellungen oder Aktionen.</p>
-      </div>
-
-      <section class="grid two">
-        <form class="card form-card" method="post" action="/admin/scanner-config">
-          <h3>Scanner konfigurieren</h3>
-          <label>Label<input name="label" required value="${escapeHtml(scannerConfig.label)}" /></label>
-          <label>Punkte<input name="addPoints" type="number" value="${Number(scannerConfig.addPoints || 0)}" /></label>
-          <label>Pizzen<input name="addPizzas" type="number" value="${Number(scannerConfig.addPizzas || 0)}" /></label>
-          <label class="check-row"><input type="checkbox" name="oncePerDay" ${scannerConfig.oncePerDay ? "checked" : ""} /> Nur 1x pro Tag</label>
-          <label class="check-row"><input type="checkbox" name="active" ${scannerConfig.active ? "checked" : ""} /> Scanner aktiv</label>
-          <button class="btn btn-primary" type="submit">Speichern</button>
-        </form>
-
-        <div class="card form-card">
-          <h3>Scanner benutzen</h3>
-          <p>${escapeHtml(scannerConfigSummary(scannerConfig))}</p>
-          <div class="button-row">
-            <button class="btn btn-primary" type="button" id="startCustomScan">Scanner starten</button>
-            <button class="btn btn-secondary" type="button" id="stopCustomScan" disabled>Stoppen</button>
+        <div class="card admin-pin-card">
+          <div class="admin-inline-top">
+            <div>
+              <h3>Staff PIN</h3>
+              <p>Wird für Scan und Einlösung genutzt.</p>
+            </div>
+            <span class="chip">Pflicht</span>
           </div>
-          <div id="customScanStatus" class="status-line">Bereit.</div>
-          <div id="readerCustom" class="reader"></div>
+          <label>
+            <input id="adminSharedPin" type="password" placeholder="PIN" autocomplete="one-time-code" />
+          </label>
+          <div class="admin-mini-note">Einmal eingeben, dann zwischen Bereichen wechseln.</div>
         </div>
       </section>
 
-      <section class="grid two">
-        <form class="card form-card" method="post" action="/admin/create-code">
-          <h3>Einmalcode erstellen</h3>
-          <label>Label<input name="label" required placeholder="2 bestellte Pizzen / BBQ Test / +25 Punkte" /></label>
-          <label>Punkte<input name="addPoints" type="number" value="0" /></label>
-          <label>Pizzen<input name="addPizzas" type="number" value="0" /></label>
-          <button class="btn btn-secondary" type="submit">Code erzeugen</button>
-        </form>
-
-        <div class="card">
-          <h3>Letzte Scans</h3>
-          <div id="customScanLog" class="event-list"></div>
+      <section class="admin-nav-card">
+        <div class="admin-tab-row" id="adminSectionSwitch">
+          <button class="btn btn-primary adminTabBtn admin-tab-btn" type="button" data-target="panel-checkin">Check-in</button>
+          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-custom">Scanner</button>
+          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-voucher">Voucher</button>
+          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-managing">Hub</button>
         </div>
       </section>
-    </section>
 
-    <section class="card admin-panel" id="panel-voucher" hidden>
-      <div class="section-head">
-        <h3>Gutschein Scanner</h3>
-        <p>Karte scannen, offenen Gutschein auswählen und direkt verbuchen.</p>
-      </div>
+      <section class="admin-panel" id="panel-checkin">
+        <section class="admin-grid-two">
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Check-in</h3>
+              <p>Fixe Buchung.</p>
+            </div>
 
-      <section class="grid two">
-        <div class="card">
-          <div class="button-row">
-            <button class="btn btn-primary" id="startVoucherScan">Scanner starten</button>
-            <button class="btn btn-secondary" id="stopVoucherScan" disabled>Stoppen</button>
+            <div class="button-row">
+              <button class="btn btn-primary" id="startCheckinScan">Scanner starten</button>
+              <button class="btn btn-secondary" id="stopCheckinScan" disabled>Stoppen</button>
+            </div>
+
+            <div id="checkinScanStatus" class="admin-status-box">Bereit.</div>
+            <div class="admin-mini-note">${escapeHtml(scannerConfigSummary(DAILY_CHECKIN_CONFIG))}</div>
           </div>
-          <div id="voucherScanStatus" class="status-line">Bereit.</div>
-        </div>
 
-        <div class="card">
-          <h3>Kamera</h3>
-          <div id="readerVoucher" class="reader"></div>
-        </div>
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Kamera</h3>
+              <p>QR-Code scannen.</p>
+            </div>
+            <div id="readerCheckin" class="reader"></div>
+          </div>
+        </section>
+
+        <section class="card admin-surface admin-list-card">
+          <div class="section-head">
+            <h3>Letzte Check-ins</h3>
+            <p>Neueste Buchungen.</p>
+          </div>
+          <div id="checkinLog" class="event-list"></div>
+        </section>
       </section>
 
-      <section class="card">
-        <h3>Offene Voucher</h3>
-        <div id="voucherSelection"><p class="muted-text">Noch kein Kunde gescannt.</p></div>
+      <section class="admin-panel" id="panel-custom" hidden>
+        <section class="admin-grid-two">
+          <form class="card admin-surface admin-compact-form" method="post" action="/admin/scanner-config">
+            <div class="section-head">
+              <h3>Scanner Setup</h3>
+              <p>Werte für die Buchung.</p>
+            </div>
+
+            <label>Label<input name="label" required value="${escapeHtml(scannerConfig.label)}" /></label>
+            <label>Punkte<input name="addPoints" type="number" value="${Number(scannerConfig.addPoints || 0)}" /></label>
+            <label>Pizzen<input name="addPizzas" type="number" value="${Number(scannerConfig.addPizzas || 0)}" /></label>
+            <label class="check-row"><input type="checkbox" name="oncePerDay" ${scannerConfig.oncePerDay ? "checked" : ""} /> Nur 1x pro Tag</label>
+            <label class="check-row"><input type="checkbox" name="active" ${scannerConfig.active ? "checked" : ""} /> Aktiv</label>
+            <button class="btn btn-primary" type="submit">Speichern</button>
+          </form>
+
+          <div class="card admin-surface scanner-summary-card">
+            <div class="section-head">
+              <h3>Scanner</h3>
+              <p>Direkt nutzen.</p>
+            </div>
+
+            <div class="admin-mini-note">${escapeHtml(scannerConfigSummary(scannerConfig))}</div>
+
+            <div class="button-row">
+              <button class="btn btn-primary" type="button" id="startCustomScan">Scanner starten</button>
+              <button class="btn btn-secondary" type="button" id="stopCustomScan" disabled>Stoppen</button>
+            </div>
+
+            <div id="customScanStatus" class="admin-status-box">Bereit.</div>
+            <div id="readerCustom" class="reader"></div>
+          </div>
+        </section>
+
+        <section class="admin-grid-two">
+          <form class="card admin-surface admin-compact-form" method="post" action="/admin/create-code">
+            <div class="section-head">
+              <h3>Einmalcode</h3>
+              <p>Manuelle Gutschrift.</p>
+            </div>
+
+            <label>Label<input name="label" required placeholder="2 bestellte Pizzen / +25 Punkte" /></label>
+            <label>Punkte<input name="addPoints" type="number" value="0" /></label>
+            <label>Pizzen<input name="addPizzas" type="number" value="0" /></label>
+            <button class="btn btn-secondary" type="submit">Code erzeugen</button>
+          </form>
+
+          <div class="card admin-surface admin-list-card">
+            <div class="section-head">
+              <h3>Letzte Scans</h3>
+              <p>Neueste Scanner-Buchungen.</p>
+            </div>
+            <div id="customScanLog" class="event-list"></div>
+          </div>
+        </section>
       </section>
 
-      <section class="card">
-        <h3>Einlösungen</h3>
-        <div id="voucherLog" class="event-list"></div>
+      <section class="admin-panel" id="panel-voucher" hidden>
+        <section class="admin-grid-two">
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Voucher Scan</h3>
+              <p>Kunde scannen und Voucher auswählen.</p>
+            </div>
+
+            <div class="button-row">
+              <button class="btn btn-primary" id="startVoucherScan">Scanner starten</button>
+              <button class="btn btn-secondary" id="stopVoucherScan" disabled>Stoppen</button>
+            </div>
+            <div id="voucherScanStatus" class="admin-status-box">Bereit.</div>
+          </div>
+
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Kamera</h3>
+              <p>QR-Code scannen.</p>
+            </div>
+            <div id="readerVoucher" class="reader"></div>
+          </div>
+        </section>
+
+        <section class="card admin-surface">
+          <div class="section-head">
+            <h3>Offene Voucher</h3>
+            <p>Nach dem Scan sichtbar.</p>
+          </div>
+          <div id="voucherSelection"><p class="muted-text">Noch kein Kunde gescannt.</p></div>
+        </section>
+
+        <section class="card admin-surface admin-list-card">
+          <div class="section-head">
+            <h3>Einlösungen</h3>
+            <p>Zuletzt verbuchte Voucher.</p>
+          </div>
+          <div id="voucherLog" class="event-list"></div>
+        </section>
       </section>
-    </section>
 
-    <section class="card admin-panel" id="panel-managing" hidden>
-      <div class="section-head">
-        <h3>Managing Hub</h3>
-        <p>Prüfungen, Aktionen, Codes und Kunden in einer Übersicht.</p>
-      </div>
+      <section class="admin-panel" id="panel-managing" hidden>
+        <section class="admin-grid-two">
+          <form class="card admin-surface admin-compact-form" method="post" action="/admin/custom-tasks">
+            <div class="section-head">
+              <h3>Neue Aktion</h3>
+              <p>Kompakt anlegen.</p>
+            </div>
 
-      <section class="grid two">
-        <form class="card form-card" method="post" action="/admin/custom-tasks">
-          <h3>Neue Aktion erstellen</h3>
-          <label>Titel<input name="title" required placeholder="Like + Kommentar auf Instagram Post" /></label>
-          <label>Beschreibung<input name="description" required placeholder="Kurze klare Erklärung" /></label>
-          <label>Ziel-Link<input name="targetUrl" placeholder="https://instagram.com/... oder https://tiktok.com/..." /></label>
-          <label>Punkte<input name="points" type="number" value="20" required /></label>
-          <label class="check-row"><input type="checkbox" name="active" checked /> Aktion aktiv</label>
-          <button class="btn btn-primary" type="submit">Aktion erstellen</button>
-        </form>
+            <label>Titel<input name="title" required placeholder="Like + Kommentar" /></label>
+            <label>Beschreibung<input name="description" required placeholder="Kurze Erklärung" /></label>
+            <label>Ziel-Link<input name="targetUrl" placeholder="https://instagram.com/..." /></label>
+            <label>Punkte<input name="points" type="number" value="20" required /></label>
+            <label class="check-row"><input type="checkbox" name="active" checked /> Aktiv</label>
+            <button class="btn btn-primary" type="submit">Aktion erstellen</button>
+          </form>
 
-        <div class="card">
-          <h3>Aktionen</h3>
+          <div class="card admin-surface admin-list-card">
+            <div class="section-head">
+              <h3>Aktionen</h3>
+              <p>Bestehende Aktionen.</p>
+            </div>
+
+            ${
+              customTasks.length
+                ? `<div class="event-list">${customTasks.map(task => `
+                    <div class="action-row">
+                      <div>
+                        <strong>${escapeHtml(task.title)}</strong>
+                        <small>${escapeHtml(task.description)}</small>
+                        ${task.targetUrl ? `<div><a href="${escapeHtml(task.targetUrl)}" target="_blank" rel="noreferrer">${escapeHtml(task.targetUrl)}</a></div>` : ""}
+                      </div>
+                      <div class="button-stack">
+                        <span class="chip">${task.points} Pkt</span>
+                        <form method="post" action="/admin/custom-tasks/${task.id}/toggle">
+                          <button class="btn btn-ghost" type="submit">${task.active ? "Deaktivieren" : "Aktivieren"}</button>
+                        </form>
+                      </div>
+                    </div>
+                  `).join("")}</div>`
+                : `<div class="admin-empty">Noch keine Aktionen erstellt.</div>`
+            }
+          </div>
+        </section>
+
+        <section class="card admin-surface admin-list-card">
+          <div class="section-head">
+            <h3>Offene Prüfungen</h3>
+            <p>Einreichen, prüfen, freigeben.</p>
+          </div>
+
           ${
-            customTasks.length
-              ? `<div class="event-list">${customTasks.map(task => `
-                  <div class="event-row">
+            pendingSubmissions.length
+              ? pendingSubmissions.map(s => `
+                  <div class="submission-row">
                     <div>
-                      <strong>${escapeHtml(task.title)}</strong>
-                      <small>${escapeHtml(task.description)}</small>
-                      ${task.targetUrl ? `<div><a href="${escapeHtml(task.targetUrl)}" target="_blank" rel="noreferrer">${escapeHtml(task.targetUrl)}</a></div>` : ""}
+                      <strong>${escapeHtml(s.user?.name || "Unbekannt")} · ${escapeHtml(submissionLabel(s))}</strong>
+                      <p><a href="${escapeHtml(s.link)}" target="_blank" rel="noreferrer">${escapeHtml(s.link)}</a></p>
+                      <small>${Number(s.rewardPoints || 0)} Punkte</small>
                     </div>
                     <div class="button-stack">
-                      <span class="chip">${task.points} Pkt</span>
-                      <form method="post" action="/admin/custom-tasks/${task.id}/toggle">
-                        <button class="btn btn-ghost" type="submit">${task.active ? "Deaktivieren" : "Aktivieren"}</button>
-                      </form>
+                      <form method="post" action="/admin/submission/${s.id}/approve"><button class="btn btn-primary">Freigeben</button></form>
+                      <form method="post" action="/admin/submission/${s.id}/reject"><button class="btn btn-ghost">Ablehnen</button></form>
                     </div>
                   </div>
-                `).join("")}</div>`
-              : `<p class="muted-text">Noch keine Aktionen erstellt.</p>`
+                `).join("")
+              : `<div class="admin-empty">Keine offenen Prüfungen.</div>`
           }
-        </div>
-      </section>
+        </section>
 
-      <section class="card">
-        <h3>Offene Prüfungen</h3>
-        ${
-          pendingSubmissions.length
-            ? pendingSubmissions.map(s => `
-                <div class="submission-row">
-                  <div>
-                    <strong>${escapeHtml(s.user?.name || "Unbekannt")} · ${escapeHtml(submissionLabel(s))}</strong>
-                    <p><a href="${escapeHtml(s.link)}" target="_blank" rel="noreferrer">${escapeHtml(s.link)}</a></p>
-                    <small>${Number(s.rewardPoints || 0)} Punkte</small>
-                  </div>
-                  <div class="button-stack">
-                    <form method="post" action="/admin/submission/${s.id}/approve"><button class="btn btn-primary">Freigeben</button></form>
-                    <form method="post" action="/admin/submission/${s.id}/reject"><button class="btn btn-ghost">Ablehnen</button></form>
-                  </div>
-                </div>
-              `).join("")
-            : `<p class="muted-text">Keine offenen Prüfungen.</p>`
-        }
-      </section>
-
-      <section class="grid two">
-        <div class="card">
-          <h3>Einmalcodes</h3>
-          ${
-            recentCodes.length
-              ? `<div class="event-list">${recentCodes.map(c => `
-                  <div class="event-row">
-                    <div>
-                      <strong>${escapeHtml(c.code)}</strong>
-                      <small>${escapeHtml(c.label)}</small>
+        <section class="admin-grid-two">
+          <div class="card admin-surface admin-list-card">
+            <div class="section-head">
+              <h3>Einmalcodes</h3>
+              <p>Zuletzt erstellt.</p>
+            </div>
+            ${
+              recentCodes.length
+                ? `<div class="event-list">${recentCodes.map(c => `
+                    <div class="event-row">
+                      <div>
+                        <strong>${escapeHtml(c.code)}</strong>
+                        <small>${escapeHtml(c.label)}</small>
+                      </div>
+                      <div class="event-side">${c.usedAt ? "eingelöst" : "offen"}</div>
                     </div>
-                    <div class="event-side">${c.usedAt ? "eingelöst" : "offen"}</div>
-                  </div>
-                `).join("")}</div>`
-              : `<p class="muted-text">Noch keine Codes.</p>`
-          }
-        </div>
-
-        <div class="card">
-          <h3>Kunden</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Name</th><th>E-Mail</th><th>Punkte</th><th>Pizzen</th><th>Voucher</th></tr>
-              </thead>
-              <tbody>
-                ${users.map(u => `
-                  <tr>
-                    <td>${escapeHtml(u.name)}</td>
-                    <td>${escapeHtml(u.email)}</td>
-                    <td>${u.points}</td>
-                    <td>${u.pizzaCount}</td>
-                    <td>–</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
+                  `).join("")}</div>`
+                : `<div class="admin-empty">Noch keine Codes.</div>`
+            }
           </div>
-        </div>
+
+          <div class="card admin-surface admin-table-card">
+            <div class="section-head">
+              <h3>Kunden</h3>
+              <p>Schnelle Übersicht.</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>Punkte</th><th>Pizzen</th><th>Voucher</th></tr>
+                </thead>
+                <tbody>
+                  ${users.map(u => `
+                    <tr>
+                      <td>
+                        ${escapeHtml(u.name)}
+                        <small>${escapeHtml(u.email)}</small>
+                      </td>
+                      <td>${u.points}</td>
+                      <td>${u.pizzaCount}</td>
+                      <td>${voucherCountMap.get(u.id) || 0}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       </section>
-    </section>
+    </div>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
@@ -2900,7 +3681,9 @@ app.get("/admin", adminRequired, async (req, res) => {
     title: "Admin",
     user: req.user,
     body,
-    description: "Übersicht für Check-ins, Scanner, Prüfungen und Kunden."
+    description: "Übersicht für Check-ins, Scanner, Prüfungen und Kunden.",
+    head: adminHead,
+    pageClass: "admin-dashboard-page"
   }));
 });
 
