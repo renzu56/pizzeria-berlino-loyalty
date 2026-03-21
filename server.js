@@ -39,7 +39,7 @@ function normalizeAppUrl(rawValue, port) {
 
 const APP_URL = normalizeAppUrl(process.env.APP_URL, PORT);
 const BRAND_NAME = process.env.BRAND_NAME || "Pizza Berlino";
-const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "Rewards & Vorteile";
+const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "Loyaltitätsprogram";
 const BRAND_LOGO_FILENAME = process.env.BRAND_LOGO_FILENAME || "1773058332279.jfif";
 const brandLogoPath = path.join(__dirname, BRAND_LOGO_FILENAME);
 const SESSION_SECRET = process.env.SESSION_SECRET || "change_me_super_secret";
@@ -68,7 +68,7 @@ const DAILY_CHECKIN_CONFIG = {
 
 const rewardDefs = [
   { id: "r15", title: "10% Rabatt", cost: 15, description: "10% Rabatt auf die nächste Bestellung." },
-  { id: "r50", title: "Kostenloses Getränk", cost: 50, description: "Ein Getränk gratis." },
+  { id: "r100", title: "Kostenloses Getränk", cost: 100, description: "Ein Getränk gratis." },
   { id: "r175", title: "50% Rabatt", cost: 175, description: "50% Rabatt auf die nächste Bestellung." },
   { id: "r300", title: "Kostenlose Pizza", cost: 300, description: "Eine Pizza gratis." }
 ];
@@ -476,7 +476,7 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       </main>
 
       <footer style="margin-top:18px;padding:12px 2px 4px;color:#7b6f64;font-size:13px">
-        ${escapeHtml(BRAND_NAME)} · Kundenkarte, Vorteile & Rewards
+       Kundenkarte, Vorteile & Rewards · <a href="https://www.pizza-berlino.de/" target="_blank" rel="noreferrer">${escapeHtml(BRAND_NAME)}</a>
       </footer>
     </div>
   </body>
@@ -1318,7 +1318,7 @@ app.get("/account", authRequired, async (req, res) => {
         <div class="task-meta">
           <div>
             <strong>Instagram folgen</strong>
-            <p>5 Sekunden öffnen, dann werden die Punkte automatisch gutgeschrieben.</p>
+            <p>Folge unserem Instagram Profil und verdiene Punkte.</p>
           </div>
           <span class="task-badge idle">25 Pkt</span>
         </div>
@@ -1768,15 +1768,12 @@ app.get("/account", authRequired, async (req, res) => {
         <h2>Dein Kundenkonto</h2>
         <p>${escapeHtml(nextRewardCopy)}</p>
 
-        <div class="button-row" style="margin-top:16px">
-          <a class="btn btn-primary" href="/wallet">Wallet öffnen</a>
-          <a class="btn btn-secondary" href="#rewards">Rewards</a>
-        </div>
+        
       </div>
 
       <div class="hero-qr-shell">
         <img class="hero-qr" src="${qr}" alt="Member QR" />
-        <span>Zum Scannen im Laden</span>
+      
       </div>
     </section>
 
@@ -1886,37 +1883,7 @@ app.get("/account", authRequired, async (req, res) => {
       </div>
     </section>
 
-    <section class="grid two">
-      <div class="card account-identity-card">
-        <div class="section-head">
-          <h3>Profil</h3>
-          <p>Deine Basisdaten.</p>
-        </div>
-
-        <div class="identity-list">
-          <div class="identity-row">
-            <strong>Name</strong>
-            <span>${escapeHtml(user.name)}</span>
-          </div>
-          <div class="identity-row">
-            <strong>E-Mail</strong>
-            <span>${escapeHtml(user.email)}</span>
-          </div>
-        </div>
-      </div>
-
-      <form class="card form-card security-card" method="post" action="/account/change-password">
-        <div class="section-head">
-          <h3>Passwort ändern</h3>
-          <p>Direkt in deinem Konto.</p>
-        </div>
-
-        <label>Aktuelles Passwort<input type="password" name="currentPassword" required autocomplete="current-password" /></label>
-        <label>Neues Passwort<input type="password" name="newPassword" minlength="6" required autocomplete="new-password" /></label>
-        <label>Neues Passwort wiederholen<input type="password" name="newPasswordConfirm" minlength="6" required autocomplete="new-password" /></label>
-        <button class="btn btn-primary" type="submit">Passwort speichern</button>
-      </form>
-    </section>
+  
   `;
 
   res.send(page({
