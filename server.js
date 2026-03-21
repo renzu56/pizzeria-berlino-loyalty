@@ -39,7 +39,7 @@ function normalizeAppUrl(rawValue, port) {
 
 const APP_URL = normalizeAppUrl(process.env.APP_URL, PORT);
 const BRAND_NAME = process.env.BRAND_NAME || "Pizza Berlino";
-const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "Loyaltitätsprogram";
+const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "Loyalitätsprogramm";
 const BRAND_LOGO_FILENAME = process.env.BRAND_LOGO_FILENAME || "1773058332279.jfif";
 const brandLogoPath = path.join(__dirname, BRAND_LOGO_FILENAME);
 const SESSION_SECRET = process.env.SESSION_SECRET || "change_me_super_secret";
@@ -419,9 +419,9 @@ function renderFlash(req) {
   return success + error;
 }
 
-function brandLogoMarkup(size = 44) {
+function brandLogoMarkup(size = 96) {
   if (!fs.existsSync(brandLogoPath)) return "";
-  return `<img src="/brand-logo" alt="${escapeHtml(BRAND_NAME)} Logo" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:14px;display:block" />`;
+  return `<img src="/brand-logo" alt="${escapeHtml(BRAND_NAME)} Logo" style="width:${size}px;height:${size}px;object-fit:contain;display:block" />`;
 }
 
 function nav(user) {
@@ -443,6 +443,66 @@ function nav(user) {
 }
 
 function page({ title, user, body, description = "", head = "", pageClass = "" }) {
+  const sharedHead = `
+    <style>
+      .topbar {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:18px;
+      }
+
+      .brand.brand-expanded {
+        display:flex;
+        align-items:center;
+        gap:18px;
+      }
+
+      .brand.brand-expanded .brand-icon {
+        width:116px;
+        height:116px;
+        padding:10px;
+        overflow:visible;
+        border-radius:26px;
+        background:#fff7f1;
+        border:1px solid rgba(191,90,52,.12);
+        box-shadow:0 10px 24px rgba(56,31,13,.08);
+        display:grid;
+        place-items:center;
+        flex:0 0 auto;
+      }
+
+      .brand.brand-expanded .brand-title {
+        font-size:clamp(28px,3vw,36px);
+        line-height:1.02;
+      }
+
+      .brand.brand-expanded .brand-subtitle {
+        margin-top:6px;
+        font-size:14px;
+      }
+
+      .footer-brand-link {
+        color:#bf5a34;
+        font-weight:700;
+        text-decoration:none;
+      }
+
+      @media (max-width: 760px) {
+        .topbar {
+          flex-direction:column;
+          align-items:flex-start;
+        }
+
+        .brand.brand-expanded .brand-icon {
+          width:92px;
+          height:92px;
+          padding:8px;
+        }
+      }
+    </style>
+  `;
+
   return `<!doctype html>
   <html lang="de">
   <head>
@@ -451,14 +511,16 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
     <title>${escapeHtml(title)} · ${escapeHtml(BRAND_NAME)}</title>
     <meta name="theme-color" content="#bf5a34" />
     <link rel="stylesheet" href="/static/styles.css" />
+    
+    ${sharedHead}
     ${head}
   </head>
   <body class="${escapeHtml(pageClass)}">
     <div class="app-shell">
       <header class="topbar">
-        <div class="brand">
-          <div class="brand-icon" style="padding:0;overflow:hidden;background:#fff7f1">
-            ${brandLogoMarkup(48) || "🍕"}
+        <div class="brand brand-expanded">
+          <div class="brand-icon">
+            ${brandLogoMarkup(96) || "🍕"}
           </div>
           <div>
             <div class="brand-title">${escapeHtml(BRAND_NAME)}</div>
@@ -475,9 +537,10 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         ${body}
       </main>
 
-      <footer style="margin-top:18px;padding:12px 2px 4px;color:#7b6f64;font-size:13px">
-       Kundenkarte, Vorteile & Rewards · <a href="https://www.pizza-berlino.de/" target="_blank" rel="noreferrer">${escapeHtml(BRAND_NAME)}</a>
-      </footer>
+      <footer class="page-footer">
+  Kundenkarte, Vorteile & Rewards ·
+  <a href="https://www.pizza-berlino.de/" target="_blank" rel="noreferrer">${escapeHtml(BRAND_NAME)}</a>
+</footer>
     </div>
   </body>
   </html>`;
@@ -693,6 +756,20 @@ function taskStateLabel(status, idleLabel = "Offen") {
   return idleLabel;
 }
 
+function collapsibleAdminBlock({ id, label = "mehr", content, count = 0, forceCollapse = false, threshold = 0 }) {
+  const shouldCollapse = forceCollapse || count >= threshold;
+  if (!shouldCollapse) return content;
+
+  return `
+    <details class="admin-disclosure" id="${escapeHtml(id)}">
+      <summary>${escapeHtml(label)}</summary>
+      <div class="admin-disclosure-body">
+        ${content}
+      </div>
+    </details>
+  `;
+}
+
 async function findUserByWalletPayload(payload) {
   if (!payload.startsWith("lpw:")) return null;
   const walletToken = payload.replace(/^lpw:/, "");
@@ -721,49 +798,65 @@ app.get("/", async (req, res) => {
   const user = await getCurrentUser(req);
   if (user) return res.redirect("/account");
 
+  const homeHead = `
+    <style>
+      .home-page .page {
+        display:grid;
+        gap:24px;
+      }
+
+      .hero-stage {
+        display:flex;
+        justify-content:center;
+      }
+
+      .hero-card-large {
+        width:min(100%, 980px);
+        min-height:420px;
+        padding:56px 34px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+        background:
+          radial-gradient(circle at top, rgba(191,90,52,.08), transparent 48%),
+          linear-gradient(135deg,#fff8f2 0%,#fffdf9 100%);
+        border:1px solid rgba(191,90,52,.12);
+        box-shadow:0 18px 40px rgba(56,31,13,.06);
+      }
+
+      .hero-card-large h2 {
+        margin:0;
+        font-size:clamp(36px,6vw,64px);
+        line-height:1.02;
+        max-width:15ch;
+      }
+
+      .hero-card-large p {
+        margin:16px 0 0;
+        max-width:58ch;
+        color:#6e6258;
+        font-size:18px;
+      }
+
+      .hero-card-large .button-row {
+        justify-content:center;
+        margin-top:26px;
+      }
+    </style>
+  `;
+
   const body = `
-    <section class="grid two">
-      <div class="card hero-card" style="position:relative;overflow:hidden">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
-          <div style="width:52px;height:52px;border-radius:16px;overflow:hidden;background:#fff7f1;display:grid;place-items:center;border:1px solid rgba(0,0,0,.06)">
-            ${brandLogoMarkup(52) || "🍕"}
-          </div>
-          <div class="hero-kicker">${escapeHtml(BRAND_NAME)}</div>
-        </div>
-        <h2>Treue, die man sehen und direkt nutzen kann.</h2>
-        <p>Mit deiner Pizza-Berlino-Karte sammelst du Punkte im Laden, verfolgst deinen Fortschritt und löst Vorteile direkt ein.</p>
+    <section class="hero-stage">
+      <div class="card hero-card hero-card-large">
+        <h2>Zeige deine Loyalität bei Pizza Berlino mit unserem Loyalty-Programm.</h2>
+        <p>Sammle Punkte im Laden und nutze deine Vorteile direkt in deinem Konto.</p>
         <div class="button-row">
           <a class="btn btn-primary" href="/register">Mitglied werden</a>
           <a class="btn btn-secondary" href="/login">Einloggen</a>
         </div>
       </div>
-
-      <div class="card">
-        <div class="section-head">
-          <h3>So funktioniert’s</h3>
-          <p>Klar, schnell und ohne unnötige Schritte.</p>
-        </div>
-        <div class="list-simple">
-          <div>
-            <strong>1. Konto erstellen</strong><br />
-            <span class="muted-text">Registrieren und E-Mail bestätigen.</span>
-          </div>
-          <div>
-            <strong>2. Karte scannen lassen</strong><br />
-            <span class="muted-text">Beim Besuch Punkte oder Pizzen sammeln.</span>
-          </div>
-          <div>
-            <strong>3. Vorteile nutzen</strong><br />
-            <span class="muted-text">Rewards und Gutscheine direkt im Konto sehen und einlösen.</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="summary-grid">
-      ${statCard("10", "Punkte pro Daily Check-in")}
-      ${statCard("15", "Punkte bis 10% Rabatt")}
-      ${statCard("10", "Pizzen bis Gratis-Pizza")}
     </section>
   `;
 
@@ -771,7 +864,8 @@ app.get("/", async (req, res) => {
     title: "Willkommen",
     user,
     body,
-    description: "Das Treueprogramm von Pizza Berlino."
+    head: homeHead,
+    pageClass: "home-page"
   }));
 });
 
@@ -779,34 +873,133 @@ app.get("/register", async (req, res) => {
   const user = await getCurrentUser(req);
   if (user) return res.redirect("/account");
 
-  const body = `
-    ${renderFlash(req)}
-    <section class="grid two">
-      <form class="card form-card" method="post" action="/register">
-        <h3>Pizza-Berlino-Konto erstellen</h3>
-        <label>Name<input name="name" required placeholder="Valentina Rossi" /></label>
-        <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" /></label>
-        <label>Passwort<input type="password" name="password" required minlength="6" placeholder="Mind. 6 Zeichen" autocomplete="new-password" /></label>
-        <button class="btn btn-primary" type="submit">Mitglied werden</button>
-      </form>
+  const pendingEmail = String(req.query.email || "").trim().toLowerCase();
+  const showVerificationState = !!pendingEmail && !!req.query.success;
 
-      <div class="card">
-        <h3>Deine Vorteile</h3>
-        <div class="list-simple">
-          <div>Kundenkarte mit QR-Code</div>
-          <div>Punkte- und Pizza-Fortschritt</div>
-          <div>Direkt sichtbare Rewards</div>
-          <div>Offene Gutscheine im Konto</div>
+  const registerHead = `
+  <style>
+    .register-page .page {
+      display:grid;
+      gap:20px;
+    }
+
+    .register-stage {
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+    }
+
+    .register-card-center {
+      width:min(100%, 620px);
+      flex:0 0 auto;
+      height:auto;
+      min-height:0;
+      align-self:flex-start;
+    }
+
+    .verify-email-chip {
+      display:inline-flex;
+      align-items:center;
+      padding:10px 14px;
+      border-radius:999px;
+      background:#fff7f1;
+      border:1px solid rgba(191,90,52,.12);
+      color:#8b4d28;
+      font-weight:600;
+      word-break:break-all;
+    }
+
+    .resend-inline-helper {
+      margin-top:16px;
+      font-size:12px;
+      color:#7b6f64;
+    }
+
+    .resend-inline-helper button,
+    .mini-resend-form button {
+      background:none;
+      border:none;
+      padding:0;
+      color:#9b4d27;
+      cursor:pointer;
+      font-size:12px;
+      font-weight:600;
+    }
+
+    .mini-resend-form {
+      margin-top:10px;
+      display:grid;
+      gap:8px;
+    }
+
+    .mini-resend-form span {
+      font-size:12px;
+      color:#7b6f64;
+    }
+  </style>
+`;
+
+  const body = showVerificationState
+    ? `
+      ${renderFlash(req)}
+      <section class="register-stage">
+        <div class="card form-card register-card-center">
+          <h3>Bestätigungslink gesendet</h3>
+          <div class="verify-email-chip">${escapeHtml(pendingEmail)}</div>
+          <p class="muted-text" style="margin:14px 0 0">Bitte bestätige deine E-Mail-Adresse und logge dich danach ein.</p>
+
+          <div class="button-row" style="margin-top:18px">
+            <a class="btn btn-secondary" href="/login">Zum Login</a>
+          </div>
+
+          <div class="resend-inline-helper" id="resendHint" hidden>
+            Mail nicht angekommen?
+            <button type="button" id="toggleResendPanel">Dann hier nochmal senden</button>
+          </div>
+
+          <form class="mini-resend-form" id="resendPanel" method="post" action="/resend-verification" hidden>
+            <input type="hidden" name="email" value="${escapeHtml(pendingEmail)}" />
+            <span>Bestätigungslink erneut senden</span>
+            <button type="submit">Jetzt senden</button>
+          </form>
         </div>
-      </div>
-    </section>
-  `;
+      </section>
+
+      <script>
+        const resendHint = document.getElementById("resendHint");
+        const resendPanel = document.getElementById("resendPanel");
+        const toggleResendPanel = document.getElementById("toggleResendPanel");
+
+        if (resendHint) {
+          window.setTimeout(() => {
+            resendHint.hidden = false;
+          }, 4000);
+        }
+
+        toggleResendPanel?.addEventListener("click", () => {
+          resendPanel.hidden = !resendPanel.hidden;
+        });
+      </script>
+    `
+    : `
+      ${renderFlash(req)}
+      <section class="register-stage">
+        <form class="card form-card register-card-center" method="post" action="/register">
+          <h3>Pizza-Berlino-Konto erstellen</h3>
+          <label>Name<input name="name" required placeholder="Valentina Rossi" /></label>
+          <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" /></label>
+          <label>Passwort<input type="password" name="password" required minlength="6" placeholder="Mind. 6 Zeichen" autocomplete="new-password" /></label>
+          <button class="btn btn-primary" type="submit">Mitglied werden</button>
+        </form>
+      </section>
+    `;
 
   res.send(page({
     title: "Mitglied werden",
     user,
     body,
-    description: "Registrieren, bestätigen und direkt loslegen."
+    head: registerHead,
+    pageClass: "register-page"
   }));
 });
 
@@ -866,28 +1059,28 @@ app.post("/register", async (req, res) => {
     await sendVerificationMail(user, verifyLink);
     return res.redirect(
       existing
-        ? "/login?success=Bestätigungslink+erneut+gesendet"
-        : "/login?success=Konto+erstellt.+Bitte+E-Mail+bestätigen"
+        ? `/register?success=Bestätigungslink+erneut+gesendet&email=${encodeURIComponent(email)}`
+        : `/register?success=Konto+erstellt.+Bitte+E-Mail+bestätigen&email=${encodeURIComponent(email)}`
     );
   } catch (error) {
     console.error("Verification mail failed", error);
-    return res.redirect("/login?error=Bestätigungsmail+konnte+nicht+gesendet+werden.+Bitte+über+Login+erneut+anfordern");
+    return res.redirect(`/register?error=Bestätigungsmail+konnte+nicht+gesendet+werden&email=${encodeURIComponent(email)}`);
   }
 });
 
 app.post("/resend-verification", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   if (!email) {
-    return res.redirect("/login?error=Bitte+eine+E-Mail-Adresse+eingeben");
+    return res.redirect("/register?error=Bitte+eine+E-Mail-Adresse+eingeben");
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    return res.redirect("/login?error=Konto+nicht+gefunden");
+    return res.redirect(`/register?error=Konto+nicht+gefunden&email=${encodeURIComponent(email)}`);
   }
 
   if (user.verified) {
-    return res.redirect("/login?success=Diese+E-Mail+ist+bereits+bestätigt");
+    return res.redirect(`/register?success=Diese+E-Mail+ist+bereits+bestätigt&email=${encodeURIComponent(email)}`);
   }
 
   const verifyToken = uid();
@@ -898,10 +1091,10 @@ app.post("/resend-verification", async (req, res) => {
 
   try {
     await sendVerificationMail(updated, absoluteUrl(`/verify?token=${encodeURIComponent(verifyToken)}`));
-    return res.redirect("/login?success=Bestätigungslink+erneut+gesendet");
+    return res.redirect(`/register?success=Bestätigungslink+erneut+gesendet&email=${encodeURIComponent(email)}`);
   } catch (error) {
     console.error("Resend verification mail failed", error);
-    return res.redirect("/login?error=Mail+konnte+nicht+gesendet+werden");
+    return res.redirect(`/register?error=Mail+konnte+nicht+gesendet+werden&email=${encodeURIComponent(email)}`);
   }
 });
 
@@ -928,67 +1121,22 @@ app.get("/login", async (req, res) => {
   const user = await getCurrentUser(req);
   if (user) return res.redirect("/account");
 
-  const loginHead = `
-    <style>
-      .login-utilities {
-        display:grid;
-        gap:14px;
-      }
-
-      .utility-box {
-        padding:14px;
-        border-radius:18px;
-        background:#fffaf6;
-        border:1px solid rgba(191,90,52,.12);
-      }
-
-      .utility-box h4 {
-        margin:0 0 6px;
-        font-size:16px;
-      }
-
-      .utility-box p {
-        margin:0 0 12px;
-        color:#6e6258;
-      }
-
-      .form-helper-row {
-        margin:-2px 0 12px;
-        display:flex;
-        justify-content:flex-end;
-      }
-
-      .form-helper-row a {
-        color:#9b4d27;
-        text-decoration:none;
-        font-weight:600;
-      }
-    </style>
-  `;
-
   const body = `
     ${renderFlash(req)}
-    <section class="grid two">
-      <form class="card form-card" method="post" action="/login">
+    <section style="display:flex;justify-content:center">
+      <div class="card form-card" style="width:min(100%,560px)">
         <h3>Einloggen</h3>
-        <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" autocomplete="email" /></label>
-        <label>Passwort<input type="password" name="password" required autocomplete="current-password" /></label>
-        <div class="form-helper-row"><a href="/forgot-password">Passwort vergessen?</a></div>
-        <button class="btn btn-primary" type="submit">Login</button>
-      </form>
-
-      <div class="login-utilities">
-        <form class="card form-card" method="post" action="/resend-verification">
-          <h3>Bestätigungslink</h3>
+        <form method="post" action="/login">
           <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" autocomplete="email" /></label>
-          <button class="btn btn-secondary" type="submit">Erneut senden</button>
+          <label>Passwort<input type="password" name="password" required autocomplete="current-password" /></label>
+          <div class="form-helper-row"><a href="/forgot-password">Passwort vergessen?</a></div>
+          <button class="btn btn-primary" type="submit">Login</button>
         </form>
 
-        <div class="card utility-box">
-          <h4>Neues Passwort</h4>
-          <p>Reset-Link per Mail anfordern.</p>
-          <a class="btn btn-ghost" href="/forgot-password">Reset öffnen</a>
-        </div>
+        <p class="muted-text" style="margin:14px 0 0">
+          Noch kein Konto?
+          <a href="/register" style="color:#9b4d27;text-decoration:none;font-weight:600">Mitglied werden</a>
+        </p>
       </div>
     </section>
   `;
@@ -998,7 +1146,21 @@ app.get("/login", async (req, res) => {
     user,
     body,
     description: "Mit deinem Pizza-Berlino-Konto anmelden.",
-    head: loginHead
+    head: `
+      <style>
+        .form-helper-row {
+          margin:-2px 0 12px;
+          display:flex;
+          justify-content:flex-end;
+        }
+
+        .form-helper-row a {
+          color:#9b4d27;
+          text-decoration:none;
+          font-weight:600;
+        }
+      </style>
+    `
   }));
 });
 
@@ -1452,6 +1614,16 @@ app.get("/account", authRequired, async (req, res) => {
         align-items:center;
       }
 
+      .pizza-progress-card .progress-card-inner {
+        grid-template-columns:1fr;
+        justify-items:center;
+      }
+
+      .pizza-progress-card .progress-copy {
+        display:grid;
+        justify-items:center;
+      }
+
       .progress-visual {
         position:relative;
         width:100%;
@@ -1767,13 +1939,10 @@ app.get("/account", authRequired, async (req, res) => {
         <div class="eyebrow">Hi ${escapeHtml(firstName)}</div>
         <h2>Dein Kundenkonto</h2>
         <p>${escapeHtml(nextRewardCopy)}</p>
-
-        
       </div>
 
       <div class="hero-qr-shell">
         <img class="hero-qr" src="${qr}" alt="Member QR" />
-      
       </div>
     </section>
 
@@ -1793,22 +1962,22 @@ app.get("/account", authRequired, async (req, res) => {
         </div>
       </div>
 
-      <div class="card progress-card">
+      <div class="card progress-card pizza-progress-card">
         <div class="section-head">
           <h3>Gratis-Pizza</h3>
-          <p>${pizzaVoucher ? "Gutschein ist bereit." : `${pizzaCycle.remaining} ${pizzaCycle.remaining === 1 ? "Pizza" : "Pizzen"} bis zum Gutschein.`}</p>
         </div>
 
         <div class="progress-card-inner">
           ${pizzaDiagramMarkup(pizzaCycle.filled, pizzaCycle.claimReady)}
-          <div class="progress-copy">
-            <h3>${pizzaVoucher ? "Bereit zum Einlösen" : "1 Slice = 1 Pizza"}</h3>
-            ${
-              pizzaVoucher
-                ? `<span class="mini-chip">${escapeHtml(pizzaVoucher.code)}</span>`
-                : `<div class="mini-note">Bis 10/10 sammeln.</div>`
-            }
-          </div>
+          ${
+            pizzaVoucher
+              ? `
+                <div class="progress-copy">
+                  <span class="mini-chip">${escapeHtml(pizzaVoucher.code)}</span>
+                </div>
+              `
+              : ""
+          }
         </div>
       </div>
     </section>
@@ -1882,8 +2051,6 @@ app.get("/account", authRequired, async (req, res) => {
         ${eventsHtml}
       </div>
     </section>
-
-  
   `;
 
   res.send(page({
@@ -2029,7 +2196,6 @@ app.post("/account/redeem-reward", authRequired, async (req, res) => {
     res.redirect("/account?error=Reward+konnte+nicht+eingelöst+werden");
   }
 });
-
 
 app.get("/instagram-task", authRequired, async (req, res) => {
   const user = req.user;
@@ -2644,7 +2810,7 @@ app.get("/admin", adminRequired, async (req, res) => {
       include: { user: true },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.customTask.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.customTask.findMany({ where: { active: true }, orderBy: { createdAt: "desc" } }),
     prisma.adminCode.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.voucher.groupBy({
       by: ["userId"],
@@ -2654,6 +2820,57 @@ app.get("/admin", adminRequired, async (req, res) => {
   ]);
 
   const voucherCountMap = new Map(voucherCounts.map(entry => [entry.userId, entry._count._all]));
+
+  const pendingSubmissionsHtml = pendingSubmissions.length
+    ? pendingSubmissions.map(s => `
+        <div class="submission-row">
+          <div>
+            <strong>${escapeHtml(s.user?.name || "Unbekannt")} · ${escapeHtml(submissionLabel(s))}</strong>
+            <p><a href="${escapeHtml(s.link)}" target="_blank" rel="noreferrer">${escapeHtml(s.link)}</a></p>
+            <small>${Number(s.rewardPoints || 0)} Punkte</small>
+          </div>
+          <div class="button-stack">
+            <form method="post" action="/admin/submission/${s.id}/approve"><button class="btn btn-primary">Freigeben</button></form>
+            <form method="post" action="/admin/submission/${s.id}/reject"><button class="btn btn-ghost">Ablehnen</button></form>
+          </div>
+        </div>
+      `).join("")
+    : `<div class="admin-empty">Keine offenen Prüfungen.</div>`;
+
+  const recentCodesHtml = recentCodes.length
+    ? `<div class="event-list">${recentCodes.map(c => `
+        <div class="event-row">
+          <div>
+            <strong>${escapeHtml(c.code)}</strong>
+            <small>${escapeHtml(c.label)}</small>
+          </div>
+          <div class="event-side">${c.usedAt ? "eingelöst" : "offen"}</div>
+        </div>
+      `).join("")}</div>`
+    : `<div class="admin-empty">Noch keine Codes.</div>`;
+
+  const usersTableHtml = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Punkte</th><th>Pizzen</th><th>Voucher</th></tr>
+        </thead>
+        <tbody>
+          ${users.map(u => `
+            <tr>
+              <td>
+                ${escapeHtml(u.name)}
+                <small>${escapeHtml(u.email)}</small>
+              </td>
+              <td>${u.points}</td>
+              <td>${u.pizzaCount}</td>
+              <td>${voucherCountMap.get(u.id) || 0}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 
   const adminHead = `
     <style>
@@ -2688,21 +2905,10 @@ app.get("/admin", adminRequired, async (req, res) => {
         background:linear-gradient(135deg,#fff8f2 0%,#fffdf9 100%);
       }
 
-      .admin-hero-card h2 {
-        margin:4px 0 8px;
-        font-size:clamp(28px,4vw,36px);
-        line-height:1.05;
-      }
-
-      .admin-hero-card p {
-        margin:0;
-        color:#6f6257;
-        max-width:52ch;
-      }
-
       .admin-hero-copy {
         display:grid;
         gap:16px;
+        height:100%;
       }
 
       .admin-stats-inline {
@@ -2988,6 +3194,28 @@ app.get("/admin", adminRequired, async (req, res) => {
         align-items:flex-start;
       }
 
+      .admin-disclosure {
+        margin-top:10px;
+      }
+
+      .admin-disclosure summary {
+        display:inline-flex;
+        align-items:center;
+        cursor:pointer;
+        color:#9b4d27;
+        font-size:13px;
+        font-weight:600;
+        list-style:none;
+      }
+
+      .admin-disclosure summary::-webkit-details-marker {
+        display:none;
+      }
+
+      .admin-disclosure[open] summary {
+        margin-bottom:12px;
+      }
+
       @media (max-width: 1040px) {
         .admin-top-grid,
         .admin-grid-two,
@@ -3022,13 +3250,7 @@ app.get("/admin", adminRequired, async (req, res) => {
     <div class="admin-shell">
       <section class="admin-top-grid">
         <div class="card admin-hero-card">
-          <div class="eyebrow">Admin</div>
           <div class="admin-hero-copy">
-            <div>
-              <h2>Alles an einem Ort</h2>
-              <p>Check-in, Scanner, Voucher und Prüfungen in einer klaren Oberfläche.</p>
-            </div>
-
             <div class="admin-stats-inline">
               <div class="admin-stat-box">
                 <strong>${userCount}</strong>
@@ -3057,7 +3279,6 @@ app.get("/admin", adminRequired, async (req, res) => {
           <label>
             <input id="adminSharedPin" type="password" placeholder="PIN" autocomplete="one-time-code" />
           </label>
-          <div class="admin-mini-note">Einmal eingeben, dann zwischen Bereichen wechseln.</div>
         </div>
       </section>
 
@@ -3237,7 +3458,7 @@ app.get("/admin", adminRequired, async (req, res) => {
                       <div class="button-stack">
                         <span class="chip">${task.points} Pkt</span>
                         <form method="post" action="/admin/custom-tasks/${task.id}/toggle">
-                          <button class="btn btn-ghost" type="submit">${task.active ? "Deaktivieren" : "Aktivieren"}</button>
+                          <button class="btn btn-ghost" type="submit">Deaktivieren</button>
                         </form>
                       </div>
                     </div>
@@ -3253,71 +3474,35 @@ app.get("/admin", adminRequired, async (req, res) => {
             <p>Einreichen, prüfen, freigeben.</p>
           </div>
 
-          ${
-            pendingSubmissions.length
-              ? pendingSubmissions.map(s => `
-                  <div class="submission-row">
-                    <div>
-                      <strong>${escapeHtml(s.user?.name || "Unbekannt")} · ${escapeHtml(submissionLabel(s))}</strong>
-                      <p><a href="${escapeHtml(s.link)}" target="_blank" rel="noreferrer">${escapeHtml(s.link)}</a></p>
-                      <small>${Number(s.rewardPoints || 0)} Punkte</small>
-                    </div>
-                    <div class="button-stack">
-                      <form method="post" action="/admin/submission/${s.id}/approve"><button class="btn btn-primary">Freigeben</button></form>
-                      <form method="post" action="/admin/submission/${s.id}/reject"><button class="btn btn-ghost">Ablehnen</button></form>
-                    </div>
-                  </div>
-                `).join("")
-              : `<div class="admin-empty">Keine offenen Prüfungen.</div>`
-          }
+          ${collapsibleAdminBlock({
+            id: "pending-submissions-block",
+            content: pendingSubmissionsHtml,
+            count: pendingSubmissions.length,
+            threshold: 5
+          })}
         </section>
 
         <section class="admin-grid-two">
           <div class="card admin-surface admin-list-card">
             <div class="section-head">
               <h3>Einmalcodes</h3>
-              <p>Zuletzt erstellt.</p>
             </div>
-            ${
-              recentCodes.length
-                ? `<div class="event-list">${recentCodes.map(c => `
-                    <div class="event-row">
-                      <div>
-                        <strong>${escapeHtml(c.code)}</strong>
-                        <small>${escapeHtml(c.label)}</small>
-                      </div>
-                      <div class="event-side">${c.usedAt ? "eingelöst" : "offen"}</div>
-                    </div>
-                  `).join("")}</div>`
-                : `<div class="admin-empty">Noch keine Codes.</div>`
-            }
+            ${collapsibleAdminBlock({
+              id: "recent-codes-block",
+              content: recentCodesHtml,
+              forceCollapse: true
+            })}
           </div>
 
           <div class="card admin-surface admin-table-card">
             <div class="section-head">
               <h3>Kunden</h3>
-              <p>Schnelle Übersicht.</p>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Name</th><th>Punkte</th><th>Pizzen</th><th>Voucher</th></tr>
-                </thead>
-                <tbody>
-                  ${users.map(u => `
-                    <tr>
-                      <td>
-                        ${escapeHtml(u.name)}
-                        <small>${escapeHtml(u.email)}</small>
-                      </td>
-                      <td>${u.points}</td>
-                      <td>${u.pizzaCount}</td>
-                      <td>${voucherCountMap.get(u.id) || 0}</td>
-                    </tr>
-                  `).join("")}
-                </tbody>
-              </table>
-            </div>
+            ${collapsibleAdminBlock({
+              id: "users-table-block",
+              content: usersTableHtml,
+              forceCollapse: true
+            })}
           </div>
         </section>
       </section>
@@ -3648,7 +3833,6 @@ app.get("/admin", adminRequired, async (req, res) => {
     title: "Admin",
     user: req.user,
     body,
-    description: "Übersicht für Check-ins, Scanner, Prüfungen und Kunden.",
     head: adminHead,
     pageClass: "admin-dashboard-page"
   }));
