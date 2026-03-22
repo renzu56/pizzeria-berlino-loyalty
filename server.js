@@ -446,6 +446,9 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
   const sharedHead = `
     <style>
       .topbar {
+        position: static !important;
+        top: auto !important;
+        z-index: auto !important;
         display:flex;
         align-items:center;
         justify-content:space-between;
@@ -456,13 +459,15 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         display:flex;
         align-items:center;
         gap:18px;
+        min-width:0;
+        flex:1 1 auto;
       }
 
       .brand.brand-expanded .brand-icon {
         width:116px;
         height:116px;
         padding:10px;
-        overflow:visible;
+        overflow:hidden;
         border-radius:26px;
         background:#fff7f1;
         border:1px solid rgba(191,90,52,.12);
@@ -482,22 +487,126 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         font-size:14px;
       }
 
-      .footer-brand-link {
+      .brand-logo-img {
+        width:100%;
+        height:100%;
+        object-fit:contain;
+        display:block;
+      }
+
+      .topnav {
+        justify-content:flex-end;
+      }
+
+      .page {
+        flex:1 0 auto;
+      }
+
+      .page-footer {
+        margin-top:auto;
+        padding:12px 2px 4px;
+        color:#7b6f64;
+        font-size:13px;
+      }
+
+      .page-footer a {
         color:#bf5a34;
         font-weight:700;
         text-decoration:none;
       }
 
+      .admin-nav-card {
+        position: static !important;
+        top: auto !important;
+      }
+
       @media (max-width: 760px) {
+        .topbar {
+          position: static !important;
+          flex-direction:row;
+          align-items:center;
+          gap:12px;
+          padding:12px 14px;
+        }
+
+        .brand.brand-expanded {
+          gap:12px;
+          min-width:0;
+        }
+
+        .brand.brand-expanded .brand-icon {
+          width:64px;
+          height:64px;
+          padding:6px;
+          border-radius:16px;
+        }
+
+        .brand.brand-expanded .brand-title {
+          font-size:clamp(20px,6vw,26px);
+          line-height:1.05;
+        }
+
+        .brand.brand-expanded .brand-subtitle {
+          margin-top:4px;
+          font-size:12px;
+        }
+
+        .topnav {
+          width:auto;
+          gap:6px;
+          margin-left:auto;
+        }
+
+        .topnav a,
+        .linklike {
+          padding:7px 9px;
+          font-size:13px;
+        }
+
+        .button-row {
+          flex-direction:row;
+          flex-wrap:wrap;
+          gap:8px;
+        }
+
+        .btn {
+          width:auto;
+        }
+
+        .reward-grid,
+        .summary-grid {
+          grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+      }
+
+      @media (max-width: 560px) {
         .topbar {
           flex-direction:column;
           align-items:flex-start;
         }
 
+        .topnav {
+          width:100%;
+          justify-content:flex-start;
+          flex-wrap:wrap;
+          margin-left:0;
+        }
+
         .brand.brand-expanded .brand-icon {
-          width:92px;
-          height:92px;
-          padding:8px;
+          width:56px;
+          height:56px;
+          padding:5px;
+          border-radius:14px;
+        }
+
+        .button-row,
+        .inline-form {
+          flex-direction:column;
+        }
+
+        .btn,
+        .inline-form input {
+          width:100%;
         }
       }
     </style>
@@ -538,9 +647,9 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       </main>
 
       <footer class="page-footer">
-  Kundenkarte, Vorteile & Rewards ·
-  <a href="https://www.pizza-berlino.de/" target="_blank" rel="noreferrer">${escapeHtml(BRAND_NAME)}</a>
-</footer>
+        Kundenkarte, Vorteile & Rewards ·
+        <a href="https://www.pizza-berlino.de/" target="_blank" rel="noreferrer">${escapeHtml(BRAND_NAME)}</a>
+      </footer>
     </div>
   </body>
   </html>`;
@@ -877,67 +986,70 @@ app.get("/register", async (req, res) => {
   const showVerificationState = !!pendingEmail && !!req.query.success;
 
   const registerHead = `
-  <style>
-    .register-page .page {
-      display:grid;
-      gap:20px;
-    }
+    <style>
+      .register-page .page {
+        display:grid;
+        gap:20px;
+        align-content:start;
+      }
 
-    .register-stage {
-      display:flex;
-      justify-content:center;
-      align-items:flex-start;
-    }
+      .register-stage {
+        display:flex;
+        justify-content:center;
+        align-items:flex-start;
+        flex:0 0 auto;
+      }
 
-    .register-card-center {
-      width:min(100%, 620px);
-      flex:0 0 auto;
-      height:auto;
-      min-height:0;
-      align-self:flex-start;
-    }
+      .register-card-center {
+        width:min(100%, 620px);
+        flex:0 0 auto;
+        height:auto !important;
+        min-height:0 !important;
+        align-self:flex-start;
+        margin:0;
+      }
 
-    .verify-email-chip {
-      display:inline-flex;
-      align-items:center;
-      padding:10px 14px;
-      border-radius:999px;
-      background:#fff7f1;
-      border:1px solid rgba(191,90,52,.12);
-      color:#8b4d28;
-      font-weight:600;
-      word-break:break-all;
-    }
+      .verify-email-chip {
+        display:inline-flex;
+        align-items:center;
+        padding:10px 14px;
+        border-radius:999px;
+        background:#fff7f1;
+        border:1px solid rgba(191,90,52,.12);
+        color:#8b4d28;
+        font-weight:600;
+        word-break:break-all;
+      }
 
-    .resend-inline-helper {
-      margin-top:16px;
-      font-size:12px;
-      color:#7b6f64;
-    }
+      .resend-inline-helper {
+        margin-top:16px;
+        font-size:12px;
+        color:#7b6f64;
+      }
 
-    .resend-inline-helper button,
-    .mini-resend-form button {
-      background:none;
-      border:none;
-      padding:0;
-      color:#9b4d27;
-      cursor:pointer;
-      font-size:12px;
-      font-weight:600;
-    }
+      .resend-inline-helper button,
+      .mini-resend-form button {
+        background:none;
+        border:none;
+        padding:0;
+        color:#9b4d27;
+        cursor:pointer;
+        font-size:12px;
+        font-weight:600;
+      }
 
-    .mini-resend-form {
-      margin-top:10px;
-      display:grid;
-      gap:8px;
-    }
+      .mini-resend-form {
+        margin-top:10px;
+        display:grid;
+        gap:8px;
+      }
 
-    .mini-resend-form span {
-      font-size:12px;
-      color:#7b6f64;
-    }
-  </style>
-`;
+      .mini-resend-form span {
+        font-size:12px;
+        color:#7b6f64;
+      }
+    </style>
+  `;
 
   const body = showVerificationState
     ? `
@@ -1123,8 +1235,8 @@ app.get("/login", async (req, res) => {
 
   const body = `
     ${renderFlash(req)}
-    <section style="display:flex;justify-content:center">
-      <div class="card form-card" style="width:min(100%,560px)">
+    <section class="login-stage">
+      <div class="card form-card login-card">
         <h3>Einloggen</h3>
         <form method="post" action="/login">
           <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" autocomplete="email" /></label>
@@ -1146,8 +1258,30 @@ app.get("/login", async (req, res) => {
     user,
     body,
     description: "Mit deinem Pizza-Berlino-Konto anmelden.",
+    pageClass: "login-page",
     head: `
       <style>
+        .login-page .page {
+          display:grid;
+          gap:20px;
+          align-content:start;
+        }
+
+        .login-stage {
+          display:flex;
+          justify-content:center;
+          align-items:flex-start;
+          flex:0 0 auto;
+        }
+
+        .login-card {
+          width:min(100%,560px);
+          flex:0 0 auto;
+          height:auto !important;
+          min-height:0 !important;
+          align-self:flex-start;
+        }
+
         .form-helper-row {
           margin:-2px 0 12px;
           display:flex;
@@ -1878,54 +2012,15 @@ app.get("/account", authRequired, async (req, res) => {
         color:#8a7b6f;
       }
 
-      .account-identity-card .identity-list {
-        display:grid;
-        gap:12px;
-      }
-
-      .account-identity-card .identity-row {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        padding:14px 0;
-        border-bottom:1px dashed rgba(123,111,100,.22);
-      }
-
-      .account-identity-card .identity-row:last-child {
-        border-bottom:none;
-        padding-bottom:0;
-      }
-
-      .account-identity-card .identity-row strong {
-        color:#6a5f55;
-        font-size:14px;
-      }
-
-      .account-identity-card .identity-row span {
-        color:#241c16;
-        font-weight:600;
-        text-align:right;
-      }
-
-      .security-card {
-        border:1px solid rgba(191,90,52,.12);
-      }
-
       @media (max-width: 920px) {
         .dashboard-hero,
         .progress-card-inner {
           grid-template-columns:1fr;
         }
 
-        .task-meta,
-        .account-identity-card .identity-row {
+        .task-meta {
           flex-direction:column;
           align-items:flex-start;
-        }
-
-        .account-identity-card .identity-row span {
-          text-align:left;
         }
       }
     </style>
@@ -2959,15 +3054,16 @@ app.get("/admin", adminRequired, async (req, res) => {
         font-size:18px;
       }
 
-     .admin-nav-card {
-  position: static;
-  padding: 12px;
-  border-radius: 22px;
-  background: rgba(255,250,246,.88);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(191,90,52,.12);
-  box-shadow: 0 12px 28px rgba(56,31,13,.05);
-}
+      .admin-nav-card {
+        position: static !important;
+        top: auto !important;
+        padding: 12px;
+        border-radius: 22px;
+        background: rgba(255,250,246,.88);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(191,90,52,.12);
+        box-shadow: 0 12px 28px rgba(56,31,13,.05);
+      }
 
       .admin-tab-row {
         display:flex;
@@ -3227,6 +3323,18 @@ app.get("/admin", adminRequired, async (req, res) => {
       }
 
       @media (max-width: 760px) {
+        .admin-tab-row {
+          display:grid;
+          grid-template-columns:repeat(2,minmax(0,1fr));
+          gap:8px;
+        }
+
+        .admin-tab-btn {
+          width:100%;
+          min-height:42px;
+          padding-inline:12px;
+        }
+
         .submission-row,
         .event-row,
         .action-row,
@@ -3235,8 +3343,11 @@ app.get("/admin", adminRequired, async (req, res) => {
           flex-direction:column;
         }
 
-        .admin-nav-card {
-          top:10px;
+        .admin-surface,
+        .admin-hero-card,
+        .admin-pin-card {
+          padding:14px;
+          border-radius:18px;
         }
       }
     </style>
