@@ -421,7 +421,7 @@ function renderFlash(req) {
 
 function brandLogoMarkup(size = 96) {
   if (!fs.existsSync(brandLogoPath)) return "";
-  return `<img src="/brand-logo" alt="${escapeHtml(BRAND_NAME)} Logo" style="width:${size}px;height:${size}px;object-fit:contain;display:block" />`;
+  return `<img src="/brand-logo" alt="${escapeHtml(BRAND_NAME)} Logo" style="width:100%;height:100%;object-fit:contain;display:block" />`;
 }
 
 function nav(user) {
@@ -2959,17 +2959,15 @@ app.get("/admin", adminRequired, async (req, res) => {
         font-size:18px;
       }
 
-      .admin-nav-card {
-        position:sticky;
-        top:14px;
-        z-index:2;
-        padding:12px;
-        border-radius:22px;
-        background:rgba(255,250,246,.88);
-        backdrop-filter:blur(10px);
-        border:1px solid rgba(191,90,52,.12);
-        box-shadow:0 12px 28px rgba(56,31,13,.05);
-      }
+     .admin-nav-card {
+  position: static;
+  padding: 12px;
+  border-radius: 22px;
+  background: rgba(255,250,246,.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(191,90,52,.12);
+  box-shadow: 0 12px 28px rgba(56,31,13,.05);
+}
 
       .admin-tab-row {
         display:flex;
