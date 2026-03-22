@@ -1066,3 +1066,248 @@ th {
     max-width: none;
   }
 }
+/* ===== LOGO FIX ===== */
+
+.brand.brand-expanded .brand-icon {
+  width: 96px;
+  height: 96px;
+  padding: 8px;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fff7f1;
+  border: 1px solid rgba(191, 90, 52, 0.12);
+  box-shadow: 0 10px 24px rgba(56, 31, 13, 0.08);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* ===== MOBILE KOMPAKTER STATT ALLES NUR UNTEREINANDER ===== */
+
+@media (max-width: 980px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reward-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .brand.brand-expanded {
+    gap: 12px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .brand.brand-expanded .brand-icon {
+    width: 64px;
+    height: 64px;
+    padding: 6px;
+    border-radius: 16px;
+  }
+
+  .brand.brand-expanded .brand-title {
+    font-size: 20px;
+    line-height: 1.05;
+  }
+
+  .brand.brand-expanded .brand-subtitle {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .topnav {
+    width: auto;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .topnav a,
+  .linklike {
+    padding: 7px 9px;
+    font-size: 13px;
+  }
+
+  .app-shell {
+    padding: 12px 10px 28px;
+  }
+
+  .page {
+    gap: 12px;
+  }
+
+  .card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .hero-card {
+    padding: 18px;
+  }
+
+  .hero-card h2,
+  .member-hero-card h2,
+  .hero-card-large h2 {
+    max-width: none;
+    font-size: clamp(24px, 6vw, 32px);
+  }
+
+  .page-head h1 {
+    font-size: clamp(22px, 5.6vw, 28px);
+  }
+
+  .page-head p,
+  .hero-card p,
+  .card p {
+    font-size: 14px;
+  }
+
+  /* NICHT alles brutal vertikal machen */
+  .button-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .btn {
+    width: auto;
+    min-height: 40px;
+    padding: 10px 12px;
+  }
+
+  .inline-form {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .inline-form input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* große Hauptbereiche dürfen untereinander bleiben */
+  .grid.two,
+  .wallet-card,
+  .member-hero-grid,
+  .loyalty-progress-grid,
+  .hero-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* aber kleine Sachen kompakt halten */
+  .summary-grid,
+  .reward-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-card strong {
+    font-size: 22px;
+  }
+
+  .task-card,
+  .reward-card,
+  .voucher-item,
+  .task-block {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .task-meta,
+  .reward-card-top,
+  .voucher-select-top,
+  .sample-progress-top,
+  .progress-card-head,
+  .member-hero-top,
+  .qr-spotlight-head {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .task-badge,
+  .chip,
+  .reward-cost {
+    font-size: 12px;
+    padding: 6px 9px;
+    min-width: auto;
+  }
+
+  .event-row,
+  .submission-row {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .event-side {
+    white-space: nowrap;
+    font-size: 13px;
+  }
+
+  .voucher-code {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .qr-image.large {
+    width: min(220px, 100%);
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topnav {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .summary-grid,
+  .reward-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-form .btn,
+  .inline-form button {
+    width: 100%;
+  }
+
+  .event-row,
+  .submission-row,
+  .task-meta,
+  .reward-card-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -419,9 +419,9 @@ function renderFlash(req) {
   return success + error;
 }
 
-function brandLogoMarkup(size = 96) {
+function brandLogoMarkup() {
   if (!fs.existsSync(brandLogoPath)) return "";
-  return `<img src="/brand-logo" alt="${escapeHtml(BRAND_NAME)} Logo" style="width:100%;height:100%;object-fit:contain;display:block" />`;
+  return `<img src="/brand-logo" alt="${escapeHtml(BRAND_NAME)} Logo" class="brand-logo-img" />`;
 }
 
 function nav(user) {
@@ -520,7 +520,7 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       <header class="topbar">
         <div class="brand brand-expanded">
           <div class="brand-icon">
-            ${brandLogoMarkup(96) || "🍕"}
+            ${brandLogoMarkup() || "🍕"}
           </div>
           <div>
             <div class="brand-title">${escapeHtml(BRAND_NAME)}</div>
