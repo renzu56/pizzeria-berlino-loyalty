@@ -237,8 +237,7 @@ app.use([
   "/admin/custom-scan",
   "/admin/redeem-scan",
   "/admin/redeem-voucher",
-  "/admin/redeem-admin-code-scan",
-  "/admin/redeem-admin-code"
+  "/admin/redeem-voucher-code"
 ], createRateLimiter({
   windowMs: ADMIN_RATE_LIMIT_WINDOW_MS,
   max: ADMIN_RATE_LIMIT_MAX,
@@ -3150,93 +3149,66 @@ app.post("/admin/redeem-voucher", adminRequired, async (req, res) => {
   });
 });
 
-app.post("/admin/redeem-admin-code-scan", adminRequired, async (req, res) => {
+app.post("/admin/redeem-voucher-code", adminRequired, async (req, res) => {
   const pin = String(req.body.pin || "").trim();
-  const payload = String(req.body.payload || "").trim();
-
-  if (!assertStaffPin(pin)) {
-    return res.status(400).json({ ok: false, error: "PIN falsch" });
-  }
-
-  if (!payload.startsWith("lpw:")) {
-    return res.status(400).json({ ok: false, error: "Ungültiger QR" });
-  }
-
-  const user = await findUserByWalletPayload(payload);
-  if (!user) {
-    return res.status(404).json({ ok: false, error: "Kunde nicht gefunden" });
-  }
-
-  res.json({
-    ok: true,
-    message: "Kunde erkannt",
-    userId: user.id,
-    userName: user.name,
-    email: user.email
-  });
-});
-
-app.post("/admin/redeem-admin-code", adminRequired, async (req, res) => {
-  const pin = String(req.body.pin || "").trim();
-  const userId = String(req.body.userId || "").trim();
   const code = normalizeCodeInput(req.body.code || "");
 
   if (!assertStaffPin(pin)) {
     return res.status(400).json({ ok: false, error: "PIN falsch" });
   }
 
-  if (!userId || !code) {
-    return res.status(400).json({ ok: false, error: "Kunde und Code sind erforderlich" });
+  if (!code) {
+    return res.status(400).json({ ok: false, error: "Code fehlt" });
   }
 
-  const [user, adminCode] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId } }),
-    prisma.adminCode.findUnique({ where: { code } })
-  ]);
+  const voucher = await prisma.voucher.findUnique({ where: { code } });
+  if (!voucher) {
+    return res.status(404).json({ ok: false, error: "Code nicht gefunden" });
+  }
 
+  if (voucher.status !== "open") {
+    return res.status(400).json({ ok: false, error: "Code wurde bereits eingelöst" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: voucher.userId } });
   if (!user) {
     return res.status(404).json({ ok: false, error: "Kunde nicht gefunden" });
   }
 
-  if (!adminCode) {
-    return res.status(404).json({ ok: false, error: "Code nicht gefunden" });
-  }
-
-  if (adminCode.usedAt) {
-    return res.status(400).json({ ok: false, error: "Code wurde bereits eingelöst" });
-  }
-
   await prisma.$transaction(async tx => {
-    await tx.adminCode.update({
-      where: { id: adminCode.id },
+    await tx.voucher.update({
+      where: { id: voucher.id },
       data: {
+        status: "used",
         usedAt: nowDate(),
-        usedByUserId: user.id
+        usedBy: req.user.email
       }
     });
 
-    await addEvent(
-      user.id,
-      "admin-code",
-      Number(adminCode.addPoints || 0),
-      Number(adminCode.addPizzas || 0),
-      adminCode.label || "Einmalcode",
-      {
-        code: adminCode.code,
-        appliedBy: req.user.email,
-        mode: "admin-claim"
-      },
-      tx
-    );
+    await tx.event.create({
+      data: {
+        id: uid(),
+        userId: user.id,
+        type: "voucher-used",
+        points: 0,
+        pizzas: 0,
+        note: `Voucher eingelöst: ${voucher.title}`,
+        meta: {
+          code: voucher.code,
+          redeemedManuallyBy: req.user.email,
+          mode: "manual-code"
+        },
+        createdAt: nowDate(),
+        dayKey: dayKey()
+      }
+    });
   });
 
   res.json({
     ok: true,
-    message: "Code gutgeschrieben",
+    message: "Code eingelöst",
     userName: user.name,
-    label: adminCode.label || "Einmalcode",
-    addPoints: Number(adminCode.addPoints || 0),
-    addPizzas: Number(adminCode.addPizzas || 0)
+    voucherTitle: voucher.title
   });
 });
 
@@ -3851,29 +3823,23 @@ app.get("/admin", adminRequired, async (req, res) => {
         <section class="admin-grid-two">
           <div class="card admin-surface">
             <div class="section-head">
-              <h3>Einmalcode gutschreiben</h3>
-              <p>Kundenkarte scannen und Code direkt dem Konto zuweisen.</p>
-            </div>
-
-            <div class="button-row">
-              <button class="btn btn-primary" id="startAdminCodeScan">Kunde scannen</button>
-              <button class="btn btn-secondary" id="stopAdminCodeScan" disabled>Stoppen</button>
+              <h3>Code manuell einlösen</h3>
+              <p>Fallback wenn der Scanner ausfällt.</p>
             </div>
 
             <div id="adminCodeStatus" class="admin-status-box">Bereit.</div>
             <div class="inline-form" style="margin-top:12px">
-              <input id="adminCodeValue" placeholder="z. B. 1A2B3C4D" autocomplete="off" />
-              <button class="btn btn-primary" type="button" id="applyAdminCodeBtn">Code gutschreiben</button>
+              <input id="adminCodeValue" placeholder="z. B. PB-AB12CD" autocomplete="off" />
+              <button class="btn btn-primary" type="button" id="applyAdminCodeBtn">Einlösen</button>
             </div>
-            <div id="selectedAdminCodeUser" class="admin-mini-note">Noch kein Kunde gewählt.</div>
           </div>
 
           <div class="card admin-surface">
             <div class="section-head">
-              <h3>Kamera</h3>
-              <p>QR-Code scannen.</p>
+              <h3>Hinweis</h3>
+              <p>Kein Scan nötig.</p>
             </div>
-            <div id="readerAdminCode" class="reader"></div>
+            <div class="admin-mini-note">Der Code reicht aus.</div>
           </div>
         </section>
       </section>
@@ -4011,7 +3977,6 @@ app.get("/admin", adminRequired, async (req, res) => {
       const scannerState = {};
       let selectedVouchers = [];
       let selectedVoucherUser = "";
-      let selectedAdminCodeUser = null;
 
       function getPin() {
         return pinInput?.value.trim() || "";
@@ -4189,114 +4154,6 @@ app.get("/admin", adminRequired, async (req, res) => {
         document.getElementById("customScanStatus").textContent = "Scanner gestoppt.";
       });
 
-      function renderSelectedAdminCodeUser(user) {
-        const target = document.getElementById("selectedAdminCodeUser");
-        if (!target) return;
-        if (!user) {
-          target.textContent = "Noch kein Kunde gewählt.";
-          return;
-        }
-
-        target.innerHTML = "Ausgewählt: <strong>" + escapeHtmlClient(user.userName || "Kunde") + "</strong>" + (user.email ? " · " + escapeHtmlClient(user.email) : "");
-      }
-
-      document.getElementById("startAdminCodeScan")?.addEventListener("click", () => {
-        startBasicScanner({
-          name: "adminCode",
-          readerId: "readerAdminCode",
-          startId: "startAdminCodeScan",
-          stopId: "stopAdminCodeScan",
-          statusId: "adminCodeStatus",
-          logId: "customScanLog",
-          endpoint: "/admin/redeem-admin-code-scan",
-          successSide: data => escapeHtmlClient(data.userName || "Kunde")
-        });
-      });
-
-      document.getElementById("stopAdminCodeScan")?.addEventListener("click", async () => {
-        await stopScanner("adminCode", "startAdminCodeScan", "stopAdminCodeScan");
-        document.getElementById("adminCodeStatus").textContent = "Scanner gestoppt.";
-      });
-
-      const originalStartBasicScanner = startBasicScanner;
-      startBasicScanner = async function (options) {
-        const { endpoint } = options;
-        if (endpoint !== "/admin/redeem-admin-code-scan") {
-          return originalStartBasicScanner(options);
-        }
-
-        const {
-          name,
-          readerId,
-          startId,
-          stopId,
-          statusId
-        } = options;
-
-        const startBtn = document.getElementById(startId);
-        const stopBtn = document.getElementById(stopId);
-        const statusEl = document.getElementById(statusId);
-
-        try {
-          if (!window.isSecureContext) {
-            statusEl.textContent = "HTTPS oder localhost nötig.";
-            return;
-          }
-
-          const pin = getPin();
-          if (!pin) {
-            statusEl.textContent = "Bitte zuerst die Staff PIN eingeben.";
-            return;
-          }
-
-          const scanner = new Html5Qrcode(readerId);
-          scannerState[name] = { instance: scanner, running: true };
-
-          await scanner.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 220, height: 220 } },
-            async decodedText => {
-              if (!scannerState[name]?.running) return;
-              scannerState[name].running = false;
-
-              try {
-                const form = new URLSearchParams();
-                form.set("payload", decodedText);
-                form.set("pin", pin);
-
-                const res = await fetch(endpoint, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                  body: form.toString()
-                });
-
-                const data = await res.json();
-                if (!res.ok || !data.ok) {
-                  statusEl.textContent = data.error || "Fehler";
-                  await stopScanner(name, startId, stopId);
-                  return;
-                }
-
-                selectedAdminCodeUser = data;
-                renderSelectedAdminCodeUser(data);
-                statusEl.textContent = data.message || "Kunde erkannt";
-                await stopScanner(name, startId, stopId);
-              } catch (error) {
-                statusEl.textContent = "Scannerfehler";
-                await stopScanner(name, startId, stopId);
-              }
-            }
-          );
-
-          startBtn.disabled = true;
-          stopBtn.disabled = false;
-          statusEl.textContent = "Scanner läuft...";
-        } catch (error) {
-          statusEl.textContent = "Scanner konnte nicht starten.";
-          await stopScanner(name, startId, stopId);
-        }
-      };
-
       document.getElementById("applyAdminCodeBtn")?.addEventListener("click", async () => {
         const statusEl = document.getElementById("adminCodeStatus");
         const codeInput = document.getElementById("adminCodeValue");
@@ -4308,11 +4165,6 @@ app.get("/admin", adminRequired, async (req, res) => {
           return;
         }
 
-        if (!selectedAdminCodeUser?.userId) {
-          statusEl.textContent = "Bitte zuerst den Kunden scannen.";
-          return;
-        }
-
         if (!code) {
           statusEl.textContent = "Bitte einen Code eingeben.";
           return;
@@ -4320,10 +4172,9 @@ app.get("/admin", adminRequired, async (req, res) => {
 
         const form = new URLSearchParams();
         form.set("pin", pin);
-        form.set("userId", selectedAdminCodeUser.userId);
         form.set("code", code);
 
-        const res = await fetch("/admin/redeem-admin-code", {
+        const res = await fetch("/admin/redeem-voucher-code", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: form.toString()
@@ -4336,10 +4187,7 @@ app.get("/admin", adminRequired, async (req, res) => {
         }
 
         statusEl.textContent = data.message;
-        addLog(
-          "customScanLog",
-          "<div><strong>" + escapeHtmlClient(data.userName || "Kunde") + "</strong><small>" + escapeHtmlClient(data.label || "Einmalcode") + "</small></div><div class='event-side'>+" + escapeHtmlClient(String(data.addPoints || 0)) + " / +" + escapeHtmlClient(String(data.addPizzas || 0)) + "</div>"
-        );
+        addLog("voucherLog", "<div><strong>" + escapeHtmlClient(data.userName) + "</strong><small>" + escapeHtmlClient(data.message) + "</small></div><div class='event-side'>" + escapeHtmlClient(data.voucherTitle) + "</div>");
         if (codeInput) codeInput.value = "";
       });
 
