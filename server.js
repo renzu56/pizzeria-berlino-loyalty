@@ -17,10 +17,13 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+
+app.use(express.urlencoded({ extended: true, limit: "64kb" }));
+app.use(express.json({ limit: "64kb" }));
 app.use(cookieParser());
-app.use("/static", express.static(path.join(__dirname, "public")));
+app.use("/static", express.static(path.join(__dirname, "public"), { maxAge: "7d", immutable: false }));
 
 const DEV_AUTO_VERIFY = process.env.DEV_AUTO_VERIFY === "true";
 const PORT = Number(process.env.PORT || 3000);
@@ -58,6 +61,17 @@ const ADMIN_EMAILS = new Set(
     .map(v => v.trim().toLowerCase())
     .filter(Boolean)
 );
+
+const SESSION_COOKIE_NAME = "session";
+const SESSION_MAX_AGE_DAYS = Number(process.env.SESSION_MAX_AGE_DAYS || 14);
+const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 25);
+const ADMIN_RATE_LIMIT_WINDOW_MS = Number(process.env.ADMIN_RATE_LIMIT_WINDOW_MS || 60 * 1000);
+const ADMIN_RATE_LIMIT_MAX = Number(process.env.ADMIN_RATE_LIMIT_MAX || 180);
+const INSTAGRAM_TASK_SECONDS = Number(process.env.INSTAGRAM_TASK_SECONDS || 5);
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
+
+const requestBuckets = new Map();
 
 const DAILY_CHECKIN_CONFIG = {
   label: "Daily Check-in",
@@ -123,6 +137,115 @@ function escapeHtml(value = "") {
   }[ch]));
 }
 
+function normalizeCodeInput(value = "") {
+  return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function getClientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || req.ip || req.socket?.remoteAddress || "unknown";
+}
+
+function passwordValidationMessage(password) {
+  const value = String(password || "");
+  if (value.length < 10) return "Passwort muss mindestens 10 Zeichen lang sein";
+  if (!/[a-zäöü]/.test(value)) return "Passwort muss mindestens einen Kleinbuchstaben enthalten";
+  if (!/[A-ZÄÖÜ]/.test(value)) return "Passwort muss mindestens einen Großbuchstaben enthalten";
+  if (!/\d/.test(value)) return "Passwort muss mindestens eine Zahl enthalten";
+  return "";
+}
+
+function isAllowedOrigin(req) {
+  const origin = String(req.get("origin") || "").trim();
+  if (!origin) return true;
+
+  try {
+    const requestOrigin = new URL(origin);
+    const appOrigin = new URL(APP_URL);
+    return requestOrigin.origin === appOrigin.origin || requestOrigin.host === String(req.get("host") || "").trim();
+  } catch {
+    return false;
+  }
+}
+
+function createRateLimiter({ windowMs, max, keyPrefix, message }) {
+  const safeWindowMs = Math.max(1000, Number(windowMs || 60_000));
+  const safeMax = Math.max(1, Number(max || 10));
+
+  return (req, res, next) => {
+    const now = Date.now();
+    const bucketKey = `${keyPrefix}:${getClientIp(req)}`;
+    const bucket = requestBuckets.get(bucketKey) || { count: 0, resetAt: now + safeWindowMs };
+
+    if (bucket.resetAt <= now) {
+      bucket.count = 0;
+      bucket.resetAt = now + safeWindowMs;
+    }
+
+    bucket.count += 1;
+    requestBuckets.set(bucketKey, bucket);
+
+    if (requestBuckets.size > 3000) {
+      for (const [key, value] of requestBuckets.entries()) {
+        if (value.resetAt <= now) requestBuckets.delete(key);
+      }
+    }
+
+    if (bucket.count > safeMax) {
+      const remainingSeconds = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+      res.setHeader("Retry-After", String(remainingSeconds));
+      if (req.path.startsWith("/admin/") || req.accepts(["json", "html"]) === "json") {
+        return res.status(429).json({ ok: false, error: message || "Zu viele Anfragen" });
+      }
+      return res.status(429).redirect(`/login?error=${encodeURIComponent(message || "Zu viele Anfragen")}`);
+    }
+
+    next();
+  };
+}
+
+app.use((req, res, next) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
+  if (APP_URL.startsWith("https://") || process.env.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && !isAllowedOrigin(req)) {
+    if (req.path.startsWith("/admin/") || req.accepts(["json", "html"]) === "json") {
+      return res.status(403).json({ ok: false, error: "Ungültige Anfrage" });
+    }
+    return res.status(403).send("Ungültige Anfrage");
+  }
+  next();
+});
+
+app.use(["/login", "/register", "/forgot-password", "/reset-password"], createRateLimiter({
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  max: AUTH_RATE_LIMIT_MAX,
+  keyPrefix: "auth",
+  message: "Zu viele Versuche. Bitte kurz warten."
+}));
+
+app.use([
+  "/admin/checkin-scan",
+  "/admin/custom-scan",
+  "/admin/redeem-scan",
+  "/admin/redeem-voucher",
+  "/admin/redeem-admin-code-scan",
+  "/admin/redeem-admin-code"
+], createRateLimiter({
+  windowMs: ADMIN_RATE_LIMIT_WINDOW_MS,
+  max: ADMIN_RATE_LIMIT_MAX,
+  keyPrefix: "admin-flow",
+  message: "Zu viele Scan-Anfragen. Bitte kurz warten."
+}));
+
 function signSession(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = crypto.createHmac("sha256", SESSION_SECRET).update(body).digest("base64url");
@@ -133,9 +256,12 @@ function verifySession(token) {
   if (!token || !token.includes(".")) return null;
   const [body, sig] = token.split(".");
   const expected = crypto.createHmac("sha256", SESSION_SECRET).update(body).digest("base64url");
-  if (sig !== expected) return null;
 
   try {
+    const sigBuffer = Buffer.from(sig);
+    const expectedBuffer = Buffer.from(expected);
+    if (sigBuffer.length !== expectedBuffer.length) return null;
+    if (!crypto.timingSafeEqual(sigBuffer, expectedBuffer)) return null;
     return JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
   } catch {
     return null;
@@ -162,7 +288,7 @@ function passwordResetFingerprint(user) {
 }
 
 async function getCurrentUser(req) {
-  const token = req.cookies.session || "";
+  const token = req.cookies[SESSION_COOKIE_NAME] || "";
   const session = verifySession(token);
   if (!session?.userId) return null;
 
@@ -175,7 +301,7 @@ function isAdmin(user) {
 
 function setSession(res, user) {
   res.cookie(
-    "session",
+    SESSION_COOKIE_NAME,
     signSession({
       userId: user.id,
       email: user.email,
@@ -184,13 +310,15 @@ function setSession(res, user) {
     {
       httpOnly: true,
       sameSite: "lax",
-      secure: APP_URL.startsWith("https://") || process.env.NODE_ENV === "production"
+      secure: APP_URL.startsWith("https://") || process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000
     }
   );
 }
 
 function clearSession(res) {
-  res.clearCookie("session");
+  res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
 }
 
 async function authRequired(req, res, next) {
@@ -358,6 +486,16 @@ async function verifyMailerConnection() {
     console.error("Resend config check failed", error);
   }
 }
+function assertRuntimeSecurity() {
+  if (process.env.NODE_ENV === "production" && SESSION_SECRET === "change_me_super_secret") {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+
+  if (process.env.NODE_ENV === "production" && STAFF_PIN === "2468") {
+    throw new Error("STAFF_PIN must be changed in production");
+  }
+}
+
 
 async function sendVerificationMail(user, verifyLink) {
   assertResendConfigured();
@@ -445,32 +583,86 @@ function nav(user) {
 function page({ title, user, body, description = "", head = "", pageClass = "" }) {
   const sharedHead = `
     <style>
+      :root {
+        --bg:#f6f2ed;
+        --surface:#fffdfa;
+        --surface-2:#fff7f0;
+        --surface-3:#fff1e5;
+        --line:rgba(119,78,45,.12);
+        --line-strong:rgba(119,78,45,.2);
+        --text:#221711;
+        --muted:#6d5b4f;
+        --brand:#bf5a34;
+        --brand-strong:#9f4320;
+        --success:#2c7a5b;
+        --danger:#b54545;
+        --shadow:0 20px 48px rgba(45,28,14,.08);
+        --shadow-soft:0 12px 28px rgba(45,28,14,.05);
+        --radius-xl:28px;
+        --radius-lg:22px;
+        --radius-md:16px;
+        --radius-sm:12px;
+      }
+
+      * { box-sizing:border-box; }
+
+      html {
+        background:var(--bg);
+        color:var(--text);
+        -webkit-text-size-adjust:100%;
+      }
+
+      body {
+        margin:0;
+        font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(191,90,52,.08), transparent 34%),
+          linear-gradient(180deg, #faf7f3 0%, #f3eee8 100%);
+        color:var(--text);
+      }
+
+      a { color:inherit; }
+
+      img { max-width:100%; height:auto; }
+
+      .app-shell {
+        width:min(1160px, calc(100% - 28px));
+        margin:18px auto;
+        min-height:calc(100vh - 36px);
+        display:flex;
+        flex-direction:column;
+        gap:18px;
+      }
+
       .topbar {
-        position: static !important;
-        top: auto !important;
-        z-index: auto !important;
         display:flex;
         align-items:center;
         justify-content:space-between;
         gap:18px;
+        padding:18px 22px;
+        border-radius:var(--radius-xl);
+        background:rgba(255,253,250,.88);
+        border:1px solid var(--line);
+        backdrop-filter:blur(14px);
+        box-shadow:var(--shadow-soft);
       }
 
       .brand.brand-expanded {
         display:flex;
         align-items:center;
-        gap:18px;
+        gap:16px;
         min-width:0;
         flex:1 1 auto;
       }
 
       .brand.brand-expanded .brand-icon {
-        width:116px;
-        height:116px;
-        padding:10px;
+        width:86px;
+        height:72px;
+        padding:8px 10px;
         overflow:hidden;
-        border-radius:26px;
-        background:#fff7f1;
-        border:1px solid rgba(191,90,52,.12);
+        border-radius:20px;
+        background:linear-gradient(180deg,#fff8f2 0%,#fff1e5 100%);
+        border:1px solid rgba(191,90,52,.14);
         box-shadow:0 10px 24px rgba(56,31,13,.08);
         display:grid;
         place-items:center;
@@ -478,39 +670,339 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       }
 
       .brand.brand-expanded .brand-title {
-        font-size:clamp(28px,3vw,36px);
-        line-height:1.02;
+        font-size:clamp(24px,3vw,34px);
+        line-height:1;
+        letter-spacing:-.03em;
+        font-weight:800;
       }
 
       .brand.brand-expanded .brand-subtitle {
         margin-top:6px;
-        font-size:14px;
+        font-size:13px;
+        color:var(--muted);
       }
 
       .brand-logo-img {
         width:100%;
         height:100%;
         object-fit:contain;
+        object-position:center;
         display:block;
       }
 
       .topnav {
+        display:flex;
         justify-content:flex-end;
+        align-items:center;
+        flex-wrap:wrap;
+        gap:10px;
+      }
+
+      .topnav a,
+      .linklike {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:42px;
+        padding:0 14px;
+        border-radius:999px;
+        border:1px solid var(--line);
+        background:#fff;
+        color:var(--text);
+        text-decoration:none;
+        font-size:14px;
+        font-weight:700;
+        transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      }
+
+      .topnav a:hover,
+      .linklike:hover,
+      .btn:hover {
+        transform:translateY(-1px);
+        border-color:var(--line-strong);
+        box-shadow:0 8px 18px rgba(45,28,14,.08);
+      }
+
+      .inline-form-nav {
+        margin:0;
+      }
+
+      .linklike {
+        cursor:pointer;
       }
 
       .page {
         flex:1 0 auto;
+        display:grid;
+        gap:18px;
+      }
+
+      .page-head {
+        padding:0 4px;
+      }
+
+      .page-head h1 {
+        margin:0 0 8px;
+        font-size:clamp(28px,4vw,38px);
+        line-height:1.02;
+        letter-spacing:-.04em;
+      }
+
+      .page-head p {
+        margin:0;
+        color:var(--muted);
+        max-width:62ch;
+      }
+
+      .card {
+        background:rgba(255,253,250,.95);
+        border:1px solid var(--line);
+        border-radius:var(--radius-lg);
+        padding:22px;
+        box-shadow:var(--shadow-soft);
+      }
+
+      .form-card {
+        display:grid;
+        gap:14px;
+      }
+
+      h2, h3, h4 {
+        margin:0;
+        letter-spacing:-.03em;
+      }
+
+      p { line-height:1.55; }
+
+      .eyebrow {
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        margin-bottom:10px;
+        color:var(--brand);
+        font-size:12px;
+        font-weight:800;
+        text-transform:uppercase;
+        letter-spacing:.12em;
+      }
+
+      .muted-text,
+      .status-line,
+      .list-simple,
+      .card p,
+      .section-head p {
+        color:var(--muted);
+      }
+
+      .section-head {
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:12px;
+        margin-bottom:18px;
+      }
+
+      .section-head h3 {
+        font-size:24px;
+      }
+
+      .section-head p {
+        margin:0;
+        font-size:14px;
+      }
+
+      .grid {
+        display:grid;
+        gap:18px;
+      }
+
+      .grid.two {
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+
+      .summary-grid,
+      .reward-grid {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:14px;
+      }
+
+      .button-row {
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+
+      .btn {
+        appearance:none;
+        border:none;
+        cursor:pointer;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:46px;
+        padding:0 16px;
+        border-radius:14px;
+        font-weight:800;
+        font-size:14px;
+        line-height:1;
+        text-decoration:none;
+        transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease, background .18s ease;
+      }
+
+      .btn:disabled {
+        opacity:.55;
+        cursor:not-allowed;
+        transform:none;
+        box-shadow:none;
+      }
+
+      .btn-primary {
+        background:linear-gradient(135deg, var(--brand) 0%, #e58a47 100%);
+        color:#fff;
+        box-shadow:0 14px 28px rgba(191,90,52,.18);
+      }
+
+      .btn-secondary {
+        background:#fff;
+        color:var(--text);
+        border:1px solid var(--line);
+      }
+
+      .btn-ghost {
+        background:var(--surface-2);
+        color:var(--brand-strong);
+        border:1px solid rgba(191,90,52,.14);
+      }
+
+      label {
+        display:grid;
+        gap:8px;
+        font-size:14px;
+        font-weight:700;
+      }
+
+      input,
+      textarea,
+      select {
+        width:100%;
+        border:1px solid rgba(119,78,45,.18);
+        background:#fff;
+        border-radius:14px;
+        padding:14px 15px;
+        font:inherit;
+        color:var(--text);
+        outline:none;
+        transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color:rgba(191,90,52,.55);
+        box-shadow:0 0 0 4px rgba(191,90,52,.12);
+      }
+
+      .inline-form {
+        display:flex;
+        gap:10px;
+        align-items:center;
+        flex-wrap:wrap;
+      }
+
+      .inline-form input {
+        flex:1 1 220px;
+      }
+
+      .status-line,
+      .admin-status-box,
+      .empty-state,
+      .alert {
+        padding:14px 16px;
+        border-radius:14px;
+        border:1px solid var(--line);
+        background:#fff;
+      }
+
+      .alert {
+        font-weight:700;
+      }
+
+      .alert.success {
+        background:#eef8f1;
+        border-color:rgba(44,122,91,.22);
+        color:#255f48;
+      }
+
+      .alert.error {
+        background:#fff2f2;
+        border-color:rgba(181,69,69,.2);
+        color:#8f3535;
+      }
+
+      .event-list {
+        display:grid;
+      }
+
+      .event-row {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+        padding:14px 0;
+        border-bottom:1px dashed rgba(119,78,45,.18);
+      }
+
+      .event-row:last-child {
+        border-bottom:none;
+        padding-bottom:0;
+      }
+
+      .event-row small {
+        display:block;
+        margin-top:4px;
+        color:#8a7b6f;
+      }
+
+      .event-side {
+        color:var(--brand-strong);
+        font-weight:800;
+        white-space:nowrap;
+      }
+
+      .chip,
+      .mini-chip {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:32px;
+        padding:0 12px;
+        border-radius:999px;
+        background:#fff;
+        border:1px solid var(--line);
+        color:var(--text);
+        font-size:12px;
+        font-weight:800;
+      }
+
+      .reader {
+        width:100%;
+        min-height:280px;
+        border-radius:18px;
+        border:1px dashed rgba(119,78,45,.24);
+        background:linear-gradient(180deg,#fff8f2 0%,#fff 100%);
+        overflow:hidden;
       }
 
       .page-footer {
         margin-top:auto;
-        padding:12px 2px 4px;
+        padding:10px 4px 4px;
         color:#7b6f64;
         font-size:13px;
       }
 
       .page-footer a {
-        color:#bf5a34;
+        color:var(--brand);
         font-weight:700;
         text-decoration:none;
       }
@@ -520,93 +1012,79 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         top: auto !important;
       }
 
-      @media (max-width: 760px) {
-        .topbar {
-          position: static !important;
-          flex-direction:row;
-          align-items:center;
-          gap:12px;
-          padding:12px 14px;
-        }
-
-        .brand.brand-expanded {
-          gap:12px;
-          min-width:0;
-        }
-
-        .brand.brand-expanded .brand-icon {
-          width:64px;
-          height:64px;
-          padding:6px;
-          border-radius:16px;
-        }
-
-        .brand.brand-expanded .brand-title {
-          font-size:clamp(20px,6vw,26px);
-          line-height:1.05;
-        }
-
-        .brand.brand-expanded .brand-subtitle {
-          margin-top:4px;
-          font-size:12px;
-        }
-
-        .topnav {
-          width:auto;
-          gap:6px;
-          margin-left:auto;
-        }
-
-        .topnav a,
-        .linklike {
-          padding:7px 9px;
-          font-size:13px;
-        }
-
-        .button-row {
-          flex-direction:row;
-          flex-wrap:wrap;
-          gap:8px;
-        }
-
-        .btn {
-          width:auto;
-        }
-
-        .reward-grid,
-        .summary-grid {
-          grid-template-columns:repeat(2,minmax(0,1fr));
+      @media (max-width: 920px) {
+        .grid.two,
+        .summary-grid,
+        .reward-grid {
+          grid-template-columns:1fr;
         }
       }
 
-      @media (max-width: 560px) {
+      @media (max-width: 760px) {
+        .app-shell {
+          width:min(100%, calc(100% - 18px));
+          margin:10px auto 18px;
+          gap:14px;
+        }
+
         .topbar {
+          padding:14px;
           flex-direction:column;
           align-items:flex-start;
+        }
+
+        .brand.brand-expanded {
+          width:100%;
+        }
+
+        .brand.brand-expanded .brand-icon {
+          width:72px;
+          height:60px;
+          border-radius:16px;
+          padding:6px 8px;
+        }
+
+        .brand.brand-expanded .brand-title {
+          font-size:clamp(22px,7vw,28px);
         }
 
         .topnav {
           width:100%;
           justify-content:flex-start;
-          flex-wrap:wrap;
-          margin-left:0;
         }
 
-        .brand.brand-expanded .brand-icon {
-          width:56px;
-          height:56px;
-          padding:5px;
-          border-radius:14px;
+        .card {
+          padding:18px;
+          border-radius:18px;
         }
 
         .button-row,
         .inline-form {
           flex-direction:column;
+          align-items:stretch;
         }
 
         .btn,
         .inline-form input {
           width:100%;
+        }
+
+        .section-head {
+          flex-direction:column;
+          align-items:flex-start;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .topnav a,
+        .linklike {
+          min-height:40px;
+          padding:0 12px;
+          font-size:13px;
+        }
+
+        .page-head h1 {
+          font-size:30px;
         }
       }
     </style>
@@ -1056,51 +1534,30 @@ app.get("/register", async (req, res) => {
       ${renderFlash(req)}
       <section class="register-stage">
         <div class="card form-card register-card-center">
-          <h3>Bestätigungslink gesendet</h3>
+          <h3>E-Mail bestätigen</h3>
           <div class="verify-email-chip">${escapeHtml(pendingEmail)}</div>
-          <p class="muted-text" style="margin:14px 0 0">Bitte bestätige deine E-Mail-Adresse und logge dich danach ein.</p>
+          <p class="muted-text" style="margin:14px 0 0">Wir haben dir einen Bestätigungslink geschickt. Sobald du bestätigt hast, kannst du dich direkt einloggen.</p>
 
           <div class="button-row" style="margin-top:18px">
             <a class="btn btn-secondary" href="/login">Zum Login</a>
           </div>
 
-          <div class="resend-inline-helper" id="resendHint" hidden>
-            Mail nicht angekommen?
-            <button type="button" id="toggleResendPanel">Dann hier nochmal senden</button>
-          </div>
-
-          <form class="mini-resend-form" id="resendPanel" method="post" action="/resend-verification" hidden>
+          <form class="mini-resend-form" method="post" action="/resend-verification">
             <input type="hidden" name="email" value="${escapeHtml(pendingEmail)}" />
-            <span>Bestätigungslink erneut senden</span>
-            <button type="submit">Jetzt senden</button>
+            <span>Keine Mail erhalten?</span>
+            <button type="submit">Neuen Link senden</button>
           </form>
         </div>
       </section>
-
-      <script>
-        const resendHint = document.getElementById("resendHint");
-        const resendPanel = document.getElementById("resendPanel");
-        const toggleResendPanel = document.getElementById("toggleResendPanel");
-
-        if (resendHint) {
-          window.setTimeout(() => {
-            resendHint.hidden = false;
-          }, 4000);
-        }
-
-        toggleResendPanel?.addEventListener("click", () => {
-          resendPanel.hidden = !resendPanel.hidden;
-        });
-      </script>
     `
     : `
       ${renderFlash(req)}
       <section class="register-stage">
         <form class="card form-card register-card-center" method="post" action="/register">
           <h3>Pizza-Berlino-Konto erstellen</h3>
-          <label>Name<input name="name" required placeholder="Valentina Rossi" /></label>
-          <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" /></label>
-          <label>Passwort<input type="password" name="password" required minlength="6" placeholder="Mind. 6 Zeichen" autocomplete="new-password" /></label>
+          <label>Name<input name="name" required placeholder="Valentina Rossi" autocomplete="name" /></label>
+          <label>E-Mail<input type="email" name="email" required placeholder="kunde@beispiel.de" autocomplete="email" /></label>
+          <label>Passwort<input type="password" name="password" required minlength="10" placeholder="Mind. 10 Zeichen, Groß-/Kleinbuchstaben und Zahl" autocomplete="new-password" /></label>
           <button class="btn btn-primary" type="submit">Mitglied werden</button>
         </form>
       </section>
@@ -1120,8 +1577,10 @@ app.post("/register", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = String(req.body.password || "");
 
-  if (!name || !email || password.length < 6) {
-    return res.redirect("/register?error=Bitte+alle+Felder+korrekt+ausfüllen");
+  const passwordError = passwordValidationMessage(password);
+
+  if (!name || !email || passwordError) {
+    return res.redirect(`/register?error=${encodeURIComponent(passwordError || "Bitte alle Felder korrekt ausfüllen")}`);
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -1129,7 +1588,7 @@ app.post("/register", async (req, res) => {
     return res.redirect("/register?error=E-Mail+bereits+registriert");
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const verifyToken = DEV_AUTO_VERIFY ? null : uid();
 
   let user;
@@ -1171,8 +1630,8 @@ app.post("/register", async (req, res) => {
     await sendVerificationMail(user, verifyLink);
     return res.redirect(
       existing
-        ? `/register?success=Bestätigungslink+erneut+gesendet&email=${encodeURIComponent(email)}`
-        : `/register?success=Konto+erstellt.+Bitte+E-Mail+bestätigen&email=${encodeURIComponent(email)}`
+        ? `/register?success=Neuer+Bestätigungslink+gesendet&email=${encodeURIComponent(email)}`
+        : `/register?success=Bestätigungslink+gesendet&email=${encodeURIComponent(email)}`
     );
   } catch (error) {
     console.error("Verification mail failed", error);
@@ -1203,7 +1662,7 @@ app.post("/resend-verification", async (req, res) => {
 
   try {
     await sendVerificationMail(updated, absoluteUrl(`/verify?token=${encodeURIComponent(verifyToken)}`));
-    return res.redirect(`/register?success=Bestätigungslink+erneut+gesendet&email=${encodeURIComponent(email)}`);
+    return res.redirect(`/register?success=Neuer+Bestätigungslink+gesendet&email=${encodeURIComponent(email)}`);
   } catch (error) {
     console.error("Resend verification mail failed", error);
     return res.redirect(`/register?error=Mail+konnte+nicht+gesendet+werden&email=${encodeURIComponent(email)}`);
@@ -1303,10 +1762,10 @@ app.post("/login", async (req, res) => {
   const password = String(req.body.password || "");
   const user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user) return res.redirect("/login?error=Konto+nicht+gefunden");
+  if (!user) return res.redirect("/login?error=Ungültige+Zugangsdaten");
 
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.redirect("/login?error=Falsches+Passwort");
+  if (!ok) return res.redirect("/login?error=Ungültige+Zugangsdaten");
   if (!user.verified) return res.redirect("/login?error=Bitte+erst+deine+E-Mail+bestätigen");
 
   setSession(res, user);
@@ -1398,8 +1857,8 @@ app.get("/reset-password", async (req, res) => {
       <form class="card form-card" method="post" action="/reset-password">
         <h3>Neues Passwort</h3>
         <input type="hidden" name="token" value="${escapeHtml(token)}" />
-        <label>Neues Passwort<input type="password" name="password" minlength="6" required autocomplete="new-password" /></label>
-        <label>Passwort wiederholen<input type="password" name="passwordConfirm" minlength="6" required autocomplete="new-password" /></label>
+        <label>Neues Passwort<input type="password" name="password" minlength="10" required autocomplete="new-password" /></label>
+        <label>Passwort wiederholen<input type="password" name="passwordConfirm" minlength="10" required autocomplete="new-password" /></label>
         <button class="btn btn-primary" type="submit">Passwort speichern</button>
       </form>
 
@@ -1407,7 +1866,8 @@ app.get("/reset-password", async (req, res) => {
         <h3>${escapeHtml(resetUser.email)}</h3>
         <div class="list-simple">
           <div>Link gültig für kurze Zeit</div>
-          <div>Mindestens 6 Zeichen</div>
+          <div>Mindestens 10 Zeichen</div>
+          <div>Groß-/Kleinbuchstaben und Zahl</div>
           <div>Danach direkt einloggen</div>
         </div>
       </div>
@@ -1432,8 +1892,9 @@ app.post("/reset-password", async (req, res) => {
     return res.redirect("/forgot-password?error=Reset-Link+ungültig+oder+abgelaufen");
   }
 
-  if (password.length < 6) {
-    return res.redirect(`/reset-password?token=${encodeURIComponent(token)}&error=Passwort+zu+kurz`);
+  const passwordError = passwordValidationMessage(password);
+  if (passwordError) {
+    return res.redirect(`/reset-password?token=${encodeURIComponent(token)}&error=${encodeURIComponent(passwordError)}`);
   }
 
   if (password !== passwordConfirm) {
@@ -1445,7 +1906,7 @@ app.post("/reset-password", async (req, res) => {
     return res.redirect("/forgot-password?error=Reset-Link+ungültig+oder+abgelaufen");
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   await prisma.user.update({
     where: { id: user.id },
     data: { passwordHash }
@@ -1485,16 +1946,19 @@ app.get("/account", authRequired, async (req, res) => {
   const nextRewardCopy =
     rewardProgress.remaining === 0
       ? `${rewardProgress.nextReward.title} ist bereit.`
-      : `Noch ${rewardProgress.remaining} Punkte bis ${rewardProgress.nextReward.title}.`;
+      : `Nächster Vorteil: ${rewardProgress.nextReward.title} in ${rewardProgress.remaining} Punkten.`;
+
+  const accountHeroCopy =
+    rewardProgress.remaining === 0
+      ? `Dein nächster Vorteil ist schon freigeschaltet.`
+      : `Du bist ${rewardProgress.remaining} Punkte von ${rewardProgress.nextReward.title} entfernt.`;
 
   const rewardCardsHtml = rewards.map(reward => {
-    const remaining = Math.max(0, reward.cost - user.points);
-
     return `
       <div class="reward-card ${reward.canRedeem ? "reward-open" : ""}">
         <div class="reward-card-top">
           <strong>${escapeHtml(reward.title)}</strong>
-          <span class="reward-cost">${reward.cost} Pkt</span>
+          <span class="reward-cost">ab ${reward.cost} Pkt</span>
         </div>
 
         <p>${escapeHtml(reward.description)}</p>
@@ -1507,7 +1971,7 @@ app.get("/account", authRequired, async (req, res) => {
         )}
 
         <div class="reward-status">
-          ${reward.canRedeem ? "Jetzt einlösbar" : `${remaining} Punkte fehlen`}
+          ${reward.canRedeem ? "Bereit zur Aktivierung" : "Noch gesperrt"}
         </div>
 
         <form method="post" action="/account/redeem-reward">
@@ -1517,7 +1981,7 @@ app.get("/account", authRequired, async (req, res) => {
             ${reward.canRedeem ? "" : "disabled"}
             type="submit"
           >
-            ${reward.canRedeem ? "Einlösen" : "Noch nicht verfügbar"}
+            ${reward.canRedeem ? "Als Gutschein aktivieren" : "Noch nicht verfügbar"}
           </button>
         </form>
       </div>
@@ -1614,13 +2078,13 @@ app.get("/account", authRequired, async (req, res) => {
         <div class="task-meta">
           <div>
             <strong>Instagram folgen</strong>
-            <p>Folge unserem Instagram Profil und verdiene Punkte.</p>
+            <p>Profil öffnen, kurz dort bleiben und die Punkte laufen automatisch ein.</p>
           </div>
           <span class="task-badge idle">25 Pkt</span>
         </div>
 
         <div class="button-row">
-          <a class="btn btn-primary" href="/instagram-task">Starten</a>
+          <a class="btn btn-primary js-instagram-claim" href="${escapeHtml(INSTAGRAM_URL)}" target="_blank" rel="noreferrer">Profil öffnen</a>
         </div>
       </div>
     `);
@@ -2033,7 +2497,7 @@ app.get("/account", authRequired, async (req, res) => {
       <div class="hero-copy">
         <div class="eyebrow">Hi ${escapeHtml(firstName)}</div>
         <h2>Dein Kundenkonto</h2>
-        <p>${escapeHtml(nextRewardCopy)}</p>
+        <p>${escapeHtml(accountHeroCopy)}</p>
       </div>
 
       <div class="hero-qr-shell">
@@ -2045,14 +2509,14 @@ app.get("/account", authRequired, async (req, res) => {
       <div class="card progress-card">
         <div class="section-head">
           <h3>Punkte</h3>
-          <p>${escapeHtml(nextRewardCopy)}</p>
+          <p>Dein Fortschritt auf einen Blick.</p>
         </div>
 
         <div class="progress-card-inner">
           ${pointsArcMarkup(rewardProgress.pct, user.points)}
           <div class="progress-copy">
             <h3>${escapeHtml(rewardProgress.nextReward.title)}</h3>
-            <p>${rewardProgress.remaining === 0 ? "Jetzt einlösbar." : `${rewardProgress.remaining} Punkte fehlen.`}</p>
+            <p>${rewardProgress.remaining === 0 ? "Bereit zur Aktivierung." : `Noch ${rewardProgress.remaining} Punkte.`}</p>
           </div>
         </div>
       </div>
@@ -2081,7 +2545,7 @@ app.get("/account", authRequired, async (req, res) => {
       <div class="card">
         <div class="section-head">
           <h3>Rewards</h3>
-          <p>Mit Punkten freischalten.</p>
+          <p>Aktiviere Vorteile direkt aus deinem Konto.</p>
         </div>
 
         <div class="reward-grid">
@@ -2091,8 +2555,8 @@ app.get("/account", authRequired, async (req, res) => {
 
       <div class="card" id="gutscheine">
         <div class="section-head">
-          <h3>Gutscheine &amp; Codes</h3>
-          <p>Direkt nutzbar im Shop.</p>
+          <h3>Gutscheine</h3>
+          <p>Im Laden vom Team nach dem Scan eingelöst.</p>
         </div>
 
         ${
@@ -2108,16 +2572,6 @@ app.get("/account", authRequired, async (req, res) => {
 
         ${vouchersHtml}
 
-        <div class="task-block" style="margin-top:16px">
-          <div>
-            <strong>Code einlösen</strong>
-            <p class="muted-text">Falls dir ein Code gegeben wurde.</p>
-          </div>
-          <form class="inline-form" method="post" action="/account/redeem-code">
-            <input name="code" placeholder="z. B. PB-AB12CD" required />
-            <button class="btn btn-secondary" type="submit">Einlösen</button>
-          </form>
-        </div>
       </div>
     </section>
 
@@ -2125,7 +2579,7 @@ app.get("/account", authRequired, async (req, res) => {
       <div class="card">
         <div class="section-head">
           <h3>Aktionen</h3>
-          <p>${actionCards.length ? "Offene Aufgaben." : "Alles erledigt."}</p>
+          <p>${actionCards.length ? "Gerade verfügbar." : "Alles erledigt."}</p>
         </div>
 
         <div class="tasks-stack">
@@ -2140,12 +2594,70 @@ app.get("/account", authRequired, async (req, res) => {
       <div class="card history-card">
         <div class="section-head">
           <h3>Verlauf</h3>
-          <p>Letzte Buchungen.</p>
+          <p>Zuletzt verbucht.</p>
         </div>
 
         ${eventsHtml}
       </div>
     </section>
+    <script>
+      const instagramActionLink = document.querySelector(".js-instagram-claim");
+      let instagramActionRunning = false;
+
+      instagramActionLink?.addEventListener("click", async event => {
+        event.preventDefault();
+        if (instagramActionRunning) return;
+
+        instagramActionRunning = true;
+        instagramActionLink.classList.add("is-loading");
+        instagramActionLink.textContent = "Wird erfasst...";
+
+        try {
+          await fetch("/tasks/instagram/opened", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: ""
+          });
+        } catch (error) {
+          console.error(error);
+        }
+
+        const href = instagramActionLink.getAttribute("href") || "";
+        const popup = window.open(href, "_blank", "noopener,noreferrer");
+
+        if (!popup) {
+          instagramActionRunning = false;
+          instagramActionLink.classList.remove("is-loading");
+          instagramActionLink.textContent = "Profil öffnen";
+          window.location.href = href;
+          return;
+        }
+
+        window.setTimeout(async () => {
+          try {
+            const res = await fetch("/tasks/instagram/complete?mode=silent", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: "",
+              keepalive: true
+            });
+
+            if (!res.ok) {
+              const data = await res.json().catch(() => null);
+              const message = data?.error || "Instagram-Aktion konnte nicht abgeschlossen werden";
+              window.location.href = "/account?error=" + encodeURIComponent(message);
+              return;
+            }
+          } catch (error) {
+            console.error(error);
+            window.location.href = "/account?error=Instagram-Aktion+konnte+nicht+abgeschlossen+werden";
+            return;
+          }
+
+          window.location.href = "/account?success=Instagram+Aktion+abgeschlossen";
+        }, ${INSTAGRAM_TASK_SECONDS * 1000});
+      });
+    </script>
   `;
 
   res.send(page({
@@ -2169,8 +2681,9 @@ app.post("/account/change-password", authRequired, async (req, res) => {
   const ok = await bcrypt.compare(currentPassword, currentUser.passwordHash);
   if (!ok) return res.redirect("/account?error=Aktuelles+Passwort+falsch");
 
-  if (newPassword.length < 6) {
-    return res.redirect("/account?error=Neues+Passwort+zu+kurz");
+  const passwordError = passwordValidationMessage(newPassword);
+  if (passwordError) {
+    return res.redirect(`/account?error=${encodeURIComponent(passwordError)}`);
   }
 
   if (newPassword !== newPasswordConfirm) {
@@ -2182,7 +2695,7 @@ app.post("/account/change-password", authRequired, async (req, res) => {
     return res.redirect("/account?error=Bitte+ein+anderes+Passwort+verwenden");
   }
 
-  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   const updatedUser = await prisma.user.update({
     where: { id: currentUser.id },
     data: { passwordHash }
@@ -2193,76 +2706,7 @@ app.post("/account/change-password", authRequired, async (req, res) => {
 });
 
 app.post("/account/redeem-code", authRequired, async (req, res) => {
-  const user = req.user;
-  const code = String(req.body.code || "").trim().toUpperCase();
-
-  const ownVoucher = await prisma.voucher.findFirst({
-    where: {
-      code,
-      userId: user.id,
-      status: "open"
-    }
-  });
-
-  if (ownVoucher) {
-    await prisma.$transaction(async tx => {
-      await tx.voucher.update({
-        where: { id: ownVoucher.id },
-        data: {
-          status: "used",
-          usedAt: nowDate()
-        }
-      });
-
-      await tx.event.create({
-        data: {
-          id: uid(),
-          userId: user.id,
-          type: "voucher-used-manual",
-          points: 0,
-          pizzas: 0,
-          note: `Voucher verwendet: ${ownVoucher.title}`,
-          meta: { code },
-          createdAt: nowDate(),
-          dayKey: dayKey()
-        }
-      });
-    });
-
-    return res.redirect("/account?success=Voucher+verwendet");
-  }
-
-  const foreignVoucher = await prisma.voucher.findUnique({ where: { code } });
-  if (foreignVoucher && foreignVoucher.userId !== user.id) {
-    return res.redirect("/account?error=Dieser+Voucher+gehört+zu+einem+anderen+Konto");
-  }
-
-  const adminCode = await prisma.adminCode.findUnique({ where: { code } });
-  if (!adminCode || adminCode.usedAt) {
-    return res.redirect("/account?error=Code+nicht+gefunden");
-  }
-
-  await prisma.$transaction(async tx => {
-    await tx.adminCode.update({
-      where: { id: adminCode.id },
-      data: {
-        usedAt: nowDate(),
-        usedByUserId: user.id
-      }
-    });
-
-    await addEvent(
-      user.id,
-      "admin-code",
-      Number(adminCode.addPoints || 0),
-      Number(adminCode.addPizzas || 0),
-      adminCode.label || "Admin Code",
-      { code: adminCode.code },
-      tx
-    );
-  });
-
-  res.redirect("/account?success=Code+eingelöst");
+  return res.redirect("/account?error=Einlösung+erfolgt+im+Laden+durch+das+Team");
 });
 
 app.post("/account/redeem-reward", authRequired, async (req, res) => {
@@ -2293,202 +2737,20 @@ app.post("/account/redeem-reward", authRequired, async (req, res) => {
 });
 
 app.get("/instagram-task", authRequired, async (req, res) => {
-  const user = req.user;
-  const ig = await getTaskState(user.id, "instagram");
-
-  const head = `
-    <style>
-      .instagram-task-page .page {
-        display:grid;
-        gap:18px;
-      }
-
-      .insta-flow-card {
-        border:1px solid rgba(191,90,52,.12);
-        box-shadow:0 14px 34px rgba(56,31,13,.05);
-      }
-
-      .countdown-orb {
-        width:132px;
-        height:132px;
-        border-radius:50%;
-        margin:18px auto 16px;
-        display:grid;
-        place-items:center;
-        text-align:center;
-        background:
-          radial-gradient(circle at 50% 50%, #fff 0 42%, transparent 43%),
-          conic-gradient(from 180deg, #bf5a34, #ef9d62, #ffd2b3, #bf5a34);
-        box-shadow:0 16px 34px rgba(191,90,52,.14);
-      }
-
-      .countdown-inner {
-        width:88px;
-        height:88px;
-        border-radius:50%;
-        background:#fffaf6;
-        display:grid;
-        place-items:center;
-        box-shadow:inset 0 0 0 1px rgba(191,90,52,.08);
-      }
-
-      .countdown-inner strong {
-        display:block;
-        font-size:34px;
-        line-height:1;
-        color:#2a2019;
-      }
-
-      .countdown-inner span {
-        display:block;
-        margin-top:4px;
-        color:#7b6f64;
-        font-size:11px;
-        text-transform:uppercase;
-        letter-spacing:.08em;
-      }
-    </style>
-  `;
-
-  const body = `
-    ${renderFlash(req)}
-
-    <section class="grid two">
-      <div class="card insta-flow-card">
-        <div class="eyebrow">Instagram Aktion</div>
-        <h2 style="margin:6px 0 8px">
-          ${ig.claimedAt ? "Schon erledigt" : "5 Sekunden, dann Punkte"}
-        </h2>
-
-        <p style="margin:0;color:#6e6258">
-          ${
-            ig.claimedAt
-              ? "Diese Aktion wurde bereits abgeschlossen."
-              : "Instagram wird geöffnet und danach automatisch abgeschlossen."
-          }
-        </p>
-
-        <div class="countdown-orb">
-          <div class="countdown-inner">
-            <div>
-              <strong id="countdownValue">${ig.claimedAt ? "✓" : "5"}</strong>
-              <span>${ig.claimedAt ? "erledigt" : "Sekunden"}</span>
-            </div>
-          </div>
-        </div>
-
-        <div id="taskStatus" class="status-line">
-          ${ig.claimedAt ? "Aktion bereits abgeschlossen." : "Bereit."}
-        </div>
-
-        <div class="button-row" style="margin-top:16px">
-          ${
-            ig.claimedAt
-              ? `<a class="btn btn-primary" href="/account">Zurück</a>`
-              : `
-                <button class="btn btn-primary" id="openInstagram">Instagram öffnen</button>
-                <a class="btn btn-secondary" href="/account">Abbrechen</a>
-              `
-          }
-        </div>
-      </div>
-
-      <div class="card insta-flow-card">
-        <h3>25 Punkte</h3>
-        <p>Kein Extra-Button mehr. Nach dem Countdown geht’s direkt zurück ins Dashboard.</p>
-      </div>
-    </section>
-
-    ${
-      ig.claimedAt
-        ? ""
-        : `
-          <script>
-            const openBtn = document.getElementById("openInstagram");
-            const countdownEl = document.getElementById("countdownValue");
-            const statusEl = document.getElementById("taskStatus");
-            let running = false;
-
-            async function finishInstagramTask() {
-              statusEl.textContent = "Punkte werden verbucht...";
-
-              try {
-                const res = await fetch("/tasks/instagram/complete", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                  body: ""
-                });
-
-                if (res.redirected) {
-                  window.location.href = res.url;
-                  return;
-                }
-
-                window.location.href = "/account?success=Instagram+Aktion+abgeschlossen";
-              } catch (error) {
-                console.error(error);
-                statusEl.textContent = "Fehler. Bitte erneut versuchen.";
-                running = false;
-                if (openBtn) openBtn.disabled = false;
-              }
-            }
-
-            openBtn?.addEventListener("click", async () => {
-              if (running) return;
-              running = true;
-              openBtn.disabled = true;
-
-              window.open(${JSON.stringify(INSTAGRAM_URL)}, "_blank", "noopener,noreferrer");
-
-              try {
-                await fetch("/tasks/instagram/opened", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                  body: ""
-                });
-              } catch (error) {
-                console.error(error);
-              }
-
-              let countdown = 5;
-              countdownEl.textContent = String(countdown);
-              statusEl.textContent = "Läuft...";
-
-              const timer = setInterval(async () => {
-                countdown -= 1;
-
-                if (countdown > 0) {
-                  countdownEl.textContent = String(countdown);
-                  return;
-                }
-
-                clearInterval(timer);
-                countdownEl.textContent = "✓";
-                await finishInstagramTask();
-              }, 1000);
-            });
-          </script>
-        `
-    }
-  `;
-
-  res.send(page({
-    title: "Instagram Aktion",
-    user,
-    body,
-    description: "Schnell erledigt, automatisch gutgeschrieben.",
-    head,
-    pageClass: "instagram-task-page"
-  }));
+  res.redirect("/account");
 });
 
 app.post("/tasks/instagram/opened", authRequired, async (req, res) => {
   const task = await getTaskState(req.user.id, "instagram");
 
+  if (task.claimedAt) {
+    return res.json({ ok: true, alreadyDone: true });
+  }
+
   await prisma.taskState.update({
     where: { id: task.id },
     data: {
-      clickedAt: task.clickedAt || nowDate(),
+      clickedAt: nowDate(),
       status: "opened"
     }
   });
@@ -2499,18 +2761,22 @@ app.post("/tasks/instagram/opened", authRequired, async (req, res) => {
 app.post("/tasks/instagram/complete", authRequired, async (req, res) => {
   const user = req.user;
   const task = await getTaskState(user.id, "instagram");
+  const silentMode = String(req.query.mode || "") === "silent";
 
   if (!task.clickedAt) {
-    return res.redirect("/instagram-task?error=Bitte+erst+Instagram+öffnen");
+    if (silentMode) return res.status(400).json({ ok: false, error: "Instagram wurde noch nicht geöffnet" });
+    return res.redirect("/account?error=Instagram+wurde+noch+nicht+gestartet");
   }
 
   if (task.claimedAt) {
+    if (silentMode) return res.json({ ok: true, alreadyDone: true });
     return res.redirect("/account?error=Instagram+bereits+abgeschlossen");
   }
 
   const secondsSinceOpen = (Date.now() - new Date(task.clickedAt).getTime()) / 1000;
-  if (secondsSinceOpen < 5) {
-    return res.redirect("/instagram-task?error=Bitte+warte+kurz+bevor+du+abschließt");
+  if (secondsSinceOpen < INSTAGRAM_TASK_SECONDS) {
+    if (silentMode) return res.status(400).json({ ok: false, error: "Bitte noch kurz warten" });
+    return res.redirect("/account?error=Bitte+noch+kurz+warten");
   }
 
   await prisma.$transaction(async tx => {
@@ -2522,9 +2788,10 @@ app.post("/tasks/instagram/complete", authRequired, async (req, res) => {
       }
     });
 
-    await addEvent(user.id, "instagram", 25, 0, "Instagram Aktion abgeschlossen", {}, tx);
+    await addEvent(user.id, "instagram", 25, 0, "Instagram Profil besucht", { autoClaimed: true }, tx);
   });
 
+  if (silentMode) return res.json({ ok: true });
   res.redirect("/account?success=Instagram+Aktion+abgeschlossen");
 });
 
@@ -2880,6 +3147,96 @@ app.post("/admin/redeem-voucher", adminRequired, async (req, res) => {
     message: "Voucher eingelöst",
     userName: user.name,
     voucherTitle: voucher.title
+  });
+});
+
+app.post("/admin/redeem-admin-code-scan", adminRequired, async (req, res) => {
+  const pin = String(req.body.pin || "").trim();
+  const payload = String(req.body.payload || "").trim();
+
+  if (!assertStaffPin(pin)) {
+    return res.status(400).json({ ok: false, error: "PIN falsch" });
+  }
+
+  if (!payload.startsWith("lpw:")) {
+    return res.status(400).json({ ok: false, error: "Ungültiger QR" });
+  }
+
+  const user = await findUserByWalletPayload(payload);
+  if (!user) {
+    return res.status(404).json({ ok: false, error: "Kunde nicht gefunden" });
+  }
+
+  res.json({
+    ok: true,
+    message: "Kunde erkannt",
+    userId: user.id,
+    userName: user.name,
+    email: user.email
+  });
+});
+
+app.post("/admin/redeem-admin-code", adminRequired, async (req, res) => {
+  const pin = String(req.body.pin || "").trim();
+  const userId = String(req.body.userId || "").trim();
+  const code = normalizeCodeInput(req.body.code || "");
+
+  if (!assertStaffPin(pin)) {
+    return res.status(400).json({ ok: false, error: "PIN falsch" });
+  }
+
+  if (!userId || !code) {
+    return res.status(400).json({ ok: false, error: "Kunde und Code sind erforderlich" });
+  }
+
+  const [user, adminCode] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId } }),
+    prisma.adminCode.findUnique({ where: { code } })
+  ]);
+
+  if (!user) {
+    return res.status(404).json({ ok: false, error: "Kunde nicht gefunden" });
+  }
+
+  if (!adminCode) {
+    return res.status(404).json({ ok: false, error: "Code nicht gefunden" });
+  }
+
+  if (adminCode.usedAt) {
+    return res.status(400).json({ ok: false, error: "Code wurde bereits eingelöst" });
+  }
+
+  await prisma.$transaction(async tx => {
+    await tx.adminCode.update({
+      where: { id: adminCode.id },
+      data: {
+        usedAt: nowDate(),
+        usedByUserId: user.id
+      }
+    });
+
+    await addEvent(
+      user.id,
+      "admin-code",
+      Number(adminCode.addPoints || 0),
+      Number(adminCode.addPizzas || 0),
+      adminCode.label || "Einmalcode",
+      {
+        code: adminCode.code,
+        appliedBy: req.user.email,
+        mode: "admin-claim"
+      },
+      tx
+    );
+  });
+
+  res.json({
+    ok: true,
+    message: "Code gutgeschrieben",
+    userName: user.name,
+    label: adminCode.label || "Einmalcode",
+    addPoints: Number(adminCode.addPoints || 0),
+    addPizzas: Number(adminCode.addPizzas || 0)
   });
 });
 
@@ -3473,7 +3830,7 @@ app.get("/admin", adminRequired, async (req, res) => {
           <form class="card admin-surface admin-compact-form" method="post" action="/admin/create-code">
             <div class="section-head">
               <h3>Einmalcode</h3>
-              <p>Manuelle Gutschrift.</p>
+              <p>Code für eine spätere Gutschrift anlegen.</p>
             </div>
 
             <label>Label<input name="label" required placeholder="2 bestellte Pizzen / +25 Punkte" /></label>
@@ -3488,6 +3845,35 @@ app.get("/admin", adminRequired, async (req, res) => {
               <p>Neueste Scanner-Buchungen.</p>
             </div>
             <div id="customScanLog" class="event-list"></div>
+          </div>
+        </section>
+
+        <section class="admin-grid-two">
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Einmalcode gutschreiben</h3>
+              <p>Kundenkarte scannen und Code direkt dem Konto zuweisen.</p>
+            </div>
+
+            <div class="button-row">
+              <button class="btn btn-primary" id="startAdminCodeScan">Kunde scannen</button>
+              <button class="btn btn-secondary" id="stopAdminCodeScan" disabled>Stoppen</button>
+            </div>
+
+            <div id="adminCodeStatus" class="admin-status-box">Bereit.</div>
+            <div class="inline-form" style="margin-top:12px">
+              <input id="adminCodeValue" placeholder="z. B. 1A2B3C4D" autocomplete="off" />
+              <button class="btn btn-primary" type="button" id="applyAdminCodeBtn">Code gutschreiben</button>
+            </div>
+            <div id="selectedAdminCodeUser" class="admin-mini-note">Noch kein Kunde gewählt.</div>
+          </div>
+
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Kamera</h3>
+              <p>QR-Code scannen.</p>
+            </div>
+            <div id="readerAdminCode" class="reader"></div>
           </div>
         </section>
       </section>
@@ -3625,6 +4011,7 @@ app.get("/admin", adminRequired, async (req, res) => {
       const scannerState = {};
       let selectedVouchers = [];
       let selectedVoucherUser = "";
+      let selectedAdminCodeUser = null;
 
       function getPin() {
         return pinInput?.value.trim() || "";
@@ -3802,6 +4189,160 @@ app.get("/admin", adminRequired, async (req, res) => {
         document.getElementById("customScanStatus").textContent = "Scanner gestoppt.";
       });
 
+      function renderSelectedAdminCodeUser(user) {
+        const target = document.getElementById("selectedAdminCodeUser");
+        if (!target) return;
+        if (!user) {
+          target.textContent = "Noch kein Kunde gewählt.";
+          return;
+        }
+
+        target.innerHTML = "Ausgewählt: <strong>" + escapeHtmlClient(user.userName || "Kunde") + "</strong>" + (user.email ? " · " + escapeHtmlClient(user.email) : "");
+      }
+
+      document.getElementById("startAdminCodeScan")?.addEventListener("click", () => {
+        startBasicScanner({
+          name: "adminCode",
+          readerId: "readerAdminCode",
+          startId: "startAdminCodeScan",
+          stopId: "stopAdminCodeScan",
+          statusId: "adminCodeStatus",
+          logId: "customScanLog",
+          endpoint: "/admin/redeem-admin-code-scan",
+          successSide: data => escapeHtmlClient(data.userName || "Kunde")
+        });
+      });
+
+      document.getElementById("stopAdminCodeScan")?.addEventListener("click", async () => {
+        await stopScanner("adminCode", "startAdminCodeScan", "stopAdminCodeScan");
+        document.getElementById("adminCodeStatus").textContent = "Scanner gestoppt.";
+      });
+
+      const originalStartBasicScanner = startBasicScanner;
+      startBasicScanner = async function (options) {
+        const { endpoint } = options;
+        if (endpoint !== "/admin/redeem-admin-code-scan") {
+          return originalStartBasicScanner(options);
+        }
+
+        const {
+          name,
+          readerId,
+          startId,
+          stopId,
+          statusId
+        } = options;
+
+        const startBtn = document.getElementById(startId);
+        const stopBtn = document.getElementById(stopId);
+        const statusEl = document.getElementById(statusId);
+
+        try {
+          if (!window.isSecureContext) {
+            statusEl.textContent = "HTTPS oder localhost nötig.";
+            return;
+          }
+
+          const pin = getPin();
+          if (!pin) {
+            statusEl.textContent = "Bitte zuerst die Staff PIN eingeben.";
+            return;
+          }
+
+          const scanner = new Html5Qrcode(readerId);
+          scannerState[name] = { instance: scanner, running: true };
+
+          await scanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            async decodedText => {
+              if (!scannerState[name]?.running) return;
+              scannerState[name].running = false;
+
+              try {
+                const form = new URLSearchParams();
+                form.set("payload", decodedText);
+                form.set("pin", pin);
+
+                const res = await fetch(endpoint, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                  body: form.toString()
+                });
+
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                  statusEl.textContent = data.error || "Fehler";
+                  await stopScanner(name, startId, stopId);
+                  return;
+                }
+
+                selectedAdminCodeUser = data;
+                renderSelectedAdminCodeUser(data);
+                statusEl.textContent = data.message || "Kunde erkannt";
+                await stopScanner(name, startId, stopId);
+              } catch (error) {
+                statusEl.textContent = "Scannerfehler";
+                await stopScanner(name, startId, stopId);
+              }
+            }
+          );
+
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          statusEl.textContent = "Scanner läuft...";
+        } catch (error) {
+          statusEl.textContent = "Scanner konnte nicht starten.";
+          await stopScanner(name, startId, stopId);
+        }
+      };
+
+      document.getElementById("applyAdminCodeBtn")?.addEventListener("click", async () => {
+        const statusEl = document.getElementById("adminCodeStatus");
+        const codeInput = document.getElementById("adminCodeValue");
+        const code = String(codeInput?.value || "").trim().toUpperCase().replace(/\s+/g, "");
+        const pin = getPin();
+
+        if (!pin) {
+          statusEl.textContent = "Bitte zuerst die Staff PIN eingeben.";
+          return;
+        }
+
+        if (!selectedAdminCodeUser?.userId) {
+          statusEl.textContent = "Bitte zuerst den Kunden scannen.";
+          return;
+        }
+
+        if (!code) {
+          statusEl.textContent = "Bitte einen Code eingeben.";
+          return;
+        }
+
+        const form = new URLSearchParams();
+        form.set("pin", pin);
+        form.set("userId", selectedAdminCodeUser.userId);
+        form.set("code", code);
+
+        const res = await fetch("/admin/redeem-admin-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: form.toString()
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          statusEl.textContent = data.error || "Fehler";
+          return;
+        }
+
+        statusEl.textContent = data.message;
+        addLog(
+          "customScanLog",
+          "<div><strong>" + escapeHtmlClient(data.userName || "Kunde") + "</strong><small>" + escapeHtmlClient(data.label || "Einmalcode") + "</small></div><div class='event-side'>+" + escapeHtmlClient(String(data.addPoints || 0)) + " / +" + escapeHtmlClient(String(data.addPizzas || 0)) + "</div>"
+        );
+        if (codeInput) codeInput.value = "";
+      });
+
       function renderVoucherSelection(userName, vouchers) {
         const selectionEl = document.getElementById("voucherSelection");
         if (!selectionEl) return;
@@ -3971,7 +4512,7 @@ app.post("/admin/scanner-config", adminRequired, async (req, res) => {
 });
 
 app.post("/admin/create-code", adminRequired, async (req, res) => {
-  const code = crypto.randomBytes(4).toString("hex").toUpperCase();
+  const code = normalizeCodeInput(crypto.randomBytes(4).toString("hex").toUpperCase());
 
   await prisma.adminCode.create({
     data: {
@@ -4104,6 +4645,7 @@ app.get("/health", async (req, res) => {
 
 app.listen(PORT, "0.0.0.0", async () => {
   try {
+    assertRuntimeSecurity();
     await ensureScannerConfig();
   } catch (error) {
     console.error("Scanner config bootstrap failed", error);
