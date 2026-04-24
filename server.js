@@ -1989,6 +1989,27 @@ app.get("/account", authRequired, async (req, res) => {
       ? `Dein nächster Vorteil ist schon freigeschaltet.`
       : `Du bist ${rewardProgress.remaining} Punkte von ${rewardProgress.nextReward.title} entfernt.`;
 
+  const accountStatsHtml = `
+    <div class="account-stats-grid">
+      <div class="account-stat-card">
+        <strong>${user.points}</strong>
+        <span>Punkte</span>
+      </div>
+      <div class="account-stat-card">
+        <strong>${user.pizzaCount}</strong>
+        <span>Pizzen</span>
+      </div>
+      <div class="account-stat-card">
+        <strong>${vouchers.length}</strong>
+        <span>Voucher offen</span>
+      </div>
+      <div class="account-stat-card">
+        <strong>${escapeHtml(rewardProgress.nextReward.title)}</strong>
+        <span>${rewardProgress.remaining === 0 ? "bereit" : `${rewardProgress.remaining} Punkte fehlen`}</span>
+      </div>
+    </div>
+  `;
+
   const rewardCardsHtml = rewards.map(reward => {
     return `
       <div class="reward-card ${reward.canRedeem ? "reward-open" : ""}">
@@ -2211,6 +2232,32 @@ app.get("/account", authRequired, async (req, res) => {
         margin:0;
         color:#6e6258;
         max-width:54ch;
+      }
+
+      .account-stats-grid {
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:12px;
+      }
+
+      .account-stat-card {
+        padding:14px 16px;
+        border-radius:18px;
+        background:#fff;
+        border:1px solid rgba(191,90,52,.12);
+      }
+
+      .account-stat-card strong {
+        display:block;
+        font-size:22px;
+        line-height:1.05;
+        margin-bottom:6px;
+      }
+
+      .account-stat-card span {
+        display:block;
+        color:#74685d;
+        font-size:13px;
       }
 
       .hero-qr-shell {
@@ -2518,6 +2565,10 @@ app.get("/account", authRequired, async (req, res) => {
           grid-template-columns:1fr;
         }
 
+        .account-stats-grid {
+          grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+
         .task-meta {
           flex-direction:column;
           align-items:flex-start;
@@ -2534,10 +2585,12 @@ app.get("/account", authRequired, async (req, res) => {
         <div class="eyebrow">Hi ${escapeHtml(firstName)}</div>
         <h2>Dein Kundenkonto</h2>
         <p>${escapeHtml(accountHeroCopy)}</p>
+        ${accountStatsHtml}
       </div>
 
       <div class="hero-qr-shell">
         <img class="hero-qr" src="${qr}" alt="Member QR" />
+        <span>Scanbereit im Laden</span>
       </div>
     </section>
 
@@ -2918,28 +2971,106 @@ app.get("/wallet", authRequired, async (req, res) => {
   const user = req.user;
   const qr = await memberQrDataUrl(user);
   const activeVoucher = (await getOpenVouchers(user.id))[0] || null;
+  const walletHead = `
+    <style>
+      .wallet-page .page {
+        display:grid;
+        gap:18px;
+      }
+
+      .wallet-hero-card {
+        display:grid;
+        grid-template-columns:minmax(0,1fr) minmax(260px,320px);
+        gap:18px;
+        align-items:center;
+        background:linear-gradient(135deg,#fff8f2 0%,#fffdf9 100%);
+      }
+
+      .wallet-hero-card h2 {
+        margin:6px 0 10px;
+        font-size:clamp(28px,4vw,38px);
+        line-height:1.02;
+      }
+
+      .wallet-hero-card p {
+        margin:0;
+        color:#6f6257;
+        max-width:56ch;
+      }
+
+      .wallet-meta-grid {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:10px;
+        margin-top:16px;
+      }
+
+      .wallet-meta-box {
+        padding:14px 16px;
+        border-radius:18px;
+        background:#fff;
+        border:1px solid rgba(191,90,52,.12);
+      }
+
+      .wallet-meta-box strong {
+        display:block;
+        margin-bottom:6px;
+      }
+
+      .wallet-qr-shell {
+        display:grid;
+        gap:12px;
+        justify-items:center;
+        padding:16px;
+        border-radius:22px;
+        background:#fff;
+        border:1px solid rgba(191,90,52,.12);
+      }
+
+      .wallet-qr-shell code {
+        word-break:break-all;
+      }
+
+      @media (max-width: 920px) {
+        .wallet-hero-card {
+          grid-template-columns:1fr;
+        }
+      }
+    </style>
+  `;
 
   const body = `
     ${renderFlash(req)}
 
-    <section class="grid two">
-      <div class="card">
-        <h3>Digitale Kundenkarte</h3>
-        <p>Hier findest du deine Karte für Scans im Laden und für deine Wallet.</p>
+    <section class="card wallet-hero-card">
+      <div>
+        <div class="eyebrow">Wallet</div>
+        <h2>Deine digitale Kundenkarte</h2>
+        <p>Alles an einem Ort: Scan im Laden, Apple Wallet Pass und dein aktuell offener Vorteil.</p>
         <div class="button-row">
           <a class="btn btn-primary" href="/wallet/pass">Wallet Pass laden</a>
           <a class="btn btn-secondary" href="/account">Zurück zum Konto</a>
         </div>
-        <div class="status-line">
-          ${
-            activeVoucher
-              ? `Offener Gutschein: <strong>${escapeHtml(activeVoucher.title)}</strong> (${escapeHtml(activeVoucher.code)})`
-              : `Aktuell ist kein Gutschein offen`
-          }
+
+        <div class="wallet-meta-grid">
+          <div class="wallet-meta-box">
+            <strong>Status</strong>
+            <span>${activeVoucher ? "Voucher offen" : "Kein offener Voucher"}</span>
+          </div>
+          <div class="wallet-meta-box">
+            <strong>Wallet</strong>
+            <span>Pass kann jederzeit neu geladen werden</span>
+          </div>
         </div>
+
+        ${
+          activeVoucher
+            ? `<div class="status-line" style="margin-top:14px">Offener Gutschein: <strong>${escapeHtml(activeVoucher.title)}</strong> (${escapeHtml(activeVoucher.code)})</div>`
+            : `<div class="status-line" style="margin-top:14px">Aktuell ist kein Gutschein offen</div>`
+        }
       </div>
 
-      <div class="card center-card">
+      <div class="wallet-qr-shell">
         <img class="qr-image large" src="${qr}" alt="Wallet QR" />
         <div class="status-line"><code>lpw:${escapeHtml(user.walletToken)}</code></div>
       </div>
@@ -2950,7 +3081,9 @@ app.get("/wallet", authRequired, async (req, res) => {
     title: "Wallet",
     user,
     body,
-    description: "Deine Pizza-Berlino-Karte für Punkte, Rewards und Gutscheine."
+    description: "Deine Pizza-Berlino-Karte für Punkte, Rewards und Gutscheine.",
+    head: walletHead,
+    pageClass: "wallet-page"
   }));
 });
 
@@ -4112,12 +4245,150 @@ app.get("/admin", adminRequired, async (req, res) => {
         margin-top:0;
       }
 
+      .admin-top-strip {
+        display:grid;
+        gap:16px;
+        padding:18px 20px;
+      }
+
+      .admin-strip-main {
+        display:grid;
+        gap:14px;
+      }
+
+      .admin-strip-copy h2 {
+        margin:6px 0 4px;
+        font-size:32px;
+        line-height:1;
+      }
+
+      .admin-strip-copy p {
+        margin:0;
+        color:#6f6257;
+      }
+
+      .admin-stats-inline.admin-stats-compact {
+        grid-template-columns:repeat(4,minmax(0,1fr));
+      }
+
+      .admin-stats-compact .admin-stat-box {
+        padding:14px 16px;
+        border-radius:18px;
+      }
+
+      .admin-stats-compact .admin-stat-box strong {
+        font-size:26px;
+      }
+
+      .admin-stats-compact .admin-stat-box small {
+        display:none;
+      }
+
+      .admin-strip-actions {
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto auto;
+        gap:10px;
+        align-items:end;
+      }
+
+      .admin-pin-inline {
+        display:grid;
+        gap:6px;
+      }
+
+      .admin-pin-inline span {
+        color:#6f6257;
+        font-size:13px;
+        font-weight:700;
+      }
+
+      .admin-pin-inline input {
+        height:48px;
+      }
+
+      .admin-nav-card.admin-nav-compact {
+        position:static;
+        padding:10px;
+      }
+
+      .admin-nav-card.admin-nav-compact .admin-tab-row {
+        gap:8px;
+      }
+
+      .admin-panel-header {
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        align-items:flex-start;
+        margin-bottom:16px;
+      }
+
+      .admin-panel-header h3 {
+        margin:0 0 6px;
+        font-size:24px;
+      }
+
+      .admin-panel-header p {
+        margin:0;
+        color:#6f6257;
+      }
+
+      .admin-workspace-card.compact {
+        padding:18px;
+      }
+
+      .admin-workspace-card.compact .admin-workspace-top {
+        margin-bottom:14px;
+      }
+
+      .admin-workspace-card.compact .admin-workspace-top h3 {
+        font-size:22px;
+      }
+
+      .admin-workspace-card.compact .reader {
+        min-height:340px;
+      }
+
+      .admin-control-stack.compact {
+        gap:12px;
+      }
+
+      .admin-note-card.compact {
+        gap:4px;
+        padding:14px 16px;
+      }
+
+      .admin-code-grid {
+        display:grid;
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+        gap:18px;
+      }
+
+      .admin-code-box {
+        display:grid;
+        gap:12px;
+      }
+
+      .admin-inline-status {
+        display:grid;
+        gap:10px;
+      }
+
+      .admin-inline-status .inline-form {
+        margin-top:0;
+      }
+
+      .admin-list-compact .event-row {
+        padding:12px 0;
+      }
+
       @media (max-width: 1100px) {
         .admin-top-grid,
         .admin-grid-two,
         .admin-grid-three,
         .admin-workspace-grid,
-        .admin-form-grid {
+        .admin-form-grid,
+        .admin-code-grid {
           grid-template-columns:1fr;
         }
 
@@ -4143,6 +4414,11 @@ app.get("/admin", adminRequired, async (req, res) => {
       @media (max-width: 760px) {
         .admin-nav-card {
           position:static;
+        }
+
+        .admin-panel-header,
+        .admin-strip-actions {
+          grid-template-columns:1fr;
         }
 
         .admin-tab-row {
@@ -4190,6 +4466,10 @@ app.get("/admin", adminRequired, async (req, res) => {
           grid-template-columns:1fr;
         }
 
+        .admin-stats-inline.admin-stats-compact {
+          grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+
         .reader {
           min-height:320px;
         }
@@ -4215,90 +4495,32 @@ app.get("/admin", adminRequired, async (req, res) => {
     ${renderFlash(req)}
 
     <div class="admin-shell">
-      <section class="admin-top-grid">
-        <div class="card admin-hero-card">
-          <div class="admin-hero-copy">
-            <span class="admin-kicker">Admin Cockpit</span>
-            <div class="admin-hero-head">
-              <div>
-                <h2>Einfach scannen, sauber verbuchen.</h2>
-                <p>Für den Live-Betrieb direkt neben der Kasse: klare Zustände, weniger Tippen und eine Struktur, die auf dem Handy genauso gut funktioniert wie am Desktop.</p>
-              </div>
-              <div class="admin-hero-badges">
-                ${scannerModeChip}
-                <span class="chip">${activeCustomTaskCount} Aktionen live</span>
-              </div>
-            </div>
-
-            <div class="admin-stats-inline">
-              ${adminMetricCard(userCount, "Kunden", userCount ? "registriert" : "bereit für den Start")}
-              ${adminMetricCard(pendingCount, "Prüfungen", pendingCount ? "warten auf Freigabe" : "alles abgearbeitet")}
-              ${adminMetricCard(openVoucherCount, "Voucher offen", openVoucherCount ? "noch nicht eingelöst" : "aktuell keine")}
-              ${adminMetricCard(activeCustomTaskCount, "Aktionen aktiv", activeCustomTaskCount ? "für Kunden sichtbar" : "derzeit keine")}
-            </div>
-
-            <div class="admin-current-config">
-              <div>
-                <small>Aktuelle Scanner-Aktion</small>
-                <strong>${escapeHtml(scannerConfig.label || "Scanner Aktion")}</strong>
-                <p>${escapeHtml(scannerConfigSummary(scannerConfig))}</p>
-              </div>
-              <button class="btn btn-secondary adminJumpBtn" type="button" data-target="panel-custom">Scanner anpassen</button>
-            </div>
+      <section class="card admin-surface admin-top-strip">
+        <div class="admin-strip-main">
+          <div class="admin-strip-copy">
+            <span class="eyebrow">Back Office</span>
+            <h2>Admin</h2>
+            <p>${escapeHtml(scannerConfigSummary(scannerConfig))}</p>
+          </div>
+          <div class="admin-stats-inline admin-stats-compact">
+            ${adminMetricCard(userCount, "Kunden")}
+            ${adminMetricCard(pendingCount, "Prüfungen")}
+            ${adminMetricCard(openVoucherCount, "Voucher")}
+            ${adminMetricCard(openCodeCount, "Codes offen")}
           </div>
         </div>
 
-        <div class="card admin-pin-card">
-          <div class="admin-inline-top">
-            <div>
-              <h3>Staff PIN</h3>
-              <p>Einmal eingeben, dann sind Scan, Voucher und Fallback-Codes direkt einsatzbereit.</p>
-            </div>
-            <span class="chip">Pflicht</span>
-          </div>
-          <div class="admin-pin-status-row">
-            <span class="chip chip-danger" id="pinReadyChip">PIN fehlt</span>
-            <button class="btn btn-ghost btn-small" id="togglePinVisibility" type="button">anzeigen</button>
-          </div>
-          <label>
+        <div class="admin-strip-actions">
+          <label class="admin-pin-inline">
             <span>Staff PIN</span>
             <input id="adminSharedPin" type="password" placeholder="PIN" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" />
           </label>
-          <div id="pinHelperText" class="admin-pin-helper">Ohne PIN sind Scan, Voucher und Code-Einlösung gesperrt.</div>
-          <div class="admin-quick-list">
-            <div class="admin-quick-item">
-              <span class="admin-quick-step">1</span>
-              <div>
-                <strong>PIN eingeben</strong>
-                <small>Nur einmal pro Sitzung. Danach bleiben alle Live-Aktionen freigeschaltet.</small>
-              </div>
-            </div>
-            <div class="admin-quick-item">
-              <span class="admin-quick-step">2</span>
-              <div>
-                <strong>Bereich wählen</strong>
-                <small>Check-in, Scanner, Voucher oder Hub je nach Situation an der Kasse.</small>
-              </div>
-            </div>
-            <div class="admin-quick-item">
-              <span class="admin-quick-step">3</span>
-              <div>
-                <strong>Aktion ausführen</strong>
-                <small>Status und letzte Buchungen werden direkt darunter sichtbar, ohne Seitenwechsel.</small>
-              </div>
-            </div>
-          </div>
+          <button class="btn btn-ghost btn-small" id="togglePinVisibility" type="button">anzeigen</button>
+          <span class="chip chip-danger" id="pinReadyChip">PIN fehlt</span>
         </div>
       </section>
 
-      <section class="admin-nav-card">
-        <div class="admin-nav-head">
-          <div>
-            <h3>Arbeitsbereiche</h3>
-            <p>Zwischen Live-Buchung, Scanner-Aktionen, Voucher-Einlösung und Verwaltung wechseln.</p>
-          </div>
-          <span class="chip">${openCodeCount} Codes offen</span>
-        </div>
+      <section class="admin-nav-card admin-nav-compact">
         <div class="admin-tab-row" id="adminSectionSwitch">
           <button class="btn btn-primary adminTabBtn admin-tab-btn" type="button" data-target="panel-checkin" aria-pressed="true">Check-in</button>
           <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-custom" aria-pressed="false">Scanner</button>
@@ -4308,27 +4530,17 @@ app.get("/admin", adminRequired, async (req, res) => {
       </section>
 
       <section class="admin-panel" id="panel-checkin">
-        <section class="card admin-surface admin-workspace-card">
-          <div class="admin-workspace-top">
+        <section class="card admin-surface admin-workspace-card compact">
+          <div class="admin-panel-header">
             <div>
-              <span class="eyebrow">Check-in</span>
-              <h3>Schneller Tages-Check-in</h3>
-              <p>Ein fixer Ablauf für wiederkehrende Besuche. Ideal, wenn das Team direkt an der Kasse mit möglichst wenig Schritten arbeiten soll.</p>
+              <h3>Check-in</h3>
+              <p>Fester Scan für den Tages-Check-in.</p>
             </div>
-            ${adminStepList([
-              { title: "PIN bereit", text: "Einmal eingeben und alle Live-Aktionen freischalten." },
-              { title: "Scanner starten", text: "Kamera aktivieren und Mitglieds-QR erfassen." },
-              { title: "Buchung prüfen", text: "Status und letzter Scan werden sofort bestätigt." }
-            ])}
+            <span class="chip">${escapeHtml(scannerConfigSummary(DAILY_CHECKIN_CONFIG))}</span>
           </div>
 
           <div class="admin-workspace-grid">
-            <div class="admin-control-stack">
-              <div class="admin-note-card">
-                <strong>Aktive Buchung</strong>
-                <span>${escapeHtml(scannerConfigSummary(DAILY_CHECKIN_CONFIG))}</span>
-              </div>
-
+            <div class="admin-control-stack compact">
               <div class="button-row">
                 <button class="btn btn-primary" id="startCheckinScan">Scanner starten</button>
                 <button class="btn btn-secondary" id="stopCheckinScan" disabled>Stoppen</button>
@@ -4358,9 +4570,12 @@ app.get("/admin", adminRequired, async (req, res) => {
       <section class="admin-panel" id="panel-custom" hidden>
         <section class="admin-grid-two">
           <form class="card admin-surface admin-compact-form" method="post" action="/admin/scanner-config">
-            <div class="section-head">
-              <h3>Scanner Setup</h3>
-              <p>Die aktive Aktion für den Live-Scanner. So bleibt der Ablauf neben der Kasse klar und konsistent.</p>
+            <div class="admin-panel-header">
+              <div>
+                <h3>Scanner Setup</h3>
+                <p>Aktive Scan-Aktion für den laufenden Betrieb.</p>
+              </div>
+              ${scannerModeChip}
             </div>
 
             <div class="admin-form-grid">
@@ -4376,31 +4591,21 @@ app.get("/admin", adminRequired, async (req, res) => {
             <button class="btn btn-primary" type="submit">Speichern</button>
           </form>
 
-          <section class="card admin-surface admin-workspace-card scanner-summary-card">
-            <div class="admin-workspace-top">
+          <section class="card admin-surface admin-workspace-card compact scanner-summary-card">
+            <div class="admin-panel-header">
               <div>
-                <span class="eyebrow">Scanner</span>
-                <h3>Live-Aktion scannen</h3>
-                <p>Nutze exakt die gerade konfigurierte Aktion, damit das Team nicht zwischen verschiedenen Buchungsarten suchen muss.</p>
+                <h3>Live-Scanner</h3>
+                <p>${escapeHtml(scannerConfig.label || "Scanner Aktion")}</p>
               </div>
-              ${adminStepList([
-                { title: "Setup prüfen", text: "Label, Punkte und Pizzen werden direkt aus der Live-Konfiguration übernommen." },
-                { title: "Scanner starten", text: "Mitglieds-QR erfassen und die Buchung automatisch anwenden." },
-                { title: "Sofort sehen", text: "Status und letzte Scans werden unmittelbar darunter aktualisiert." }
-              ])}
+              <button class="btn btn-secondary btn-small adminJumpBtn" type="button" data-target="panel-managing">Zum Hub</button>
             </div>
 
             <div class="admin-workspace-grid">
-              <div class="admin-control-stack">
-                <div class="admin-note-card">
-                  <strong>Aktive Aktion</strong>
-                  <span>${escapeHtml(scannerConfigSummary(scannerConfig))}</span>
+              <div class="admin-control-stack compact">
+                <div class="admin-note-card compact">
+                  <strong>${escapeHtml(scannerConfigSummary(scannerConfig))}</strong>
+                  <small>${scannerConfig.active ? "Scanner bereit" : "Scanner pausiert"}</small>
                 </div>
-                <div class="admin-note-card">
-                  <strong>${scannerConfig.active ? "Scanner live" : "Scanner pausiert"}</strong>
-                  <span>${scannerConfig.active ? "Die Aktion kann sofort gescannt werden." : "Vor dem nächsten Scan zuerst wieder aktivieren."}</span>
-                </div>
-
                 <div class="button-row">
                   <button class="btn btn-primary" type="button" id="startCustomScan">Scanner starten</button>
                   <button class="btn btn-secondary" type="button" id="stopCustomScan" disabled>Stoppen</button>
@@ -4414,39 +4619,55 @@ app.get("/admin", adminRequired, async (req, res) => {
           </section>
         </section>
 
-        <section class="admin-grid-two">
-          <section class="card admin-surface">
-            <div class="section-head">
-              <h3>Einmalcode & Fallback</h3>
-              <p>Für Sonderfälle oder wenn die Kamera gerade nicht praktikabel ist.</p>
+        <section class="admin-code-grid">
+          <section class="card admin-surface admin-code-box">
+            <div class="admin-panel-header">
+              <div>
+                <h3>Einmalcode</h3>
+                <p>Code erstellen und direkt daneben sehen.</p>
+              </div>
+              <span class="chip">${openCodeCount} offen</span>
             </div>
 
-            <div class="admin-manual-stack">
-              <form class="admin-compact-form" method="post" action="/admin/create-code">
-                <div class="admin-form-grid">
-                  <label class="admin-field-span">Label<input name="label" required placeholder="2 bestellte Pizzen / +25 Punkte" /></label>
-                  <label>Punkte<input name="addPoints" type="number" value="0" /></label>
-                  <label>Pizzen<input name="addPizzas" type="number" value="0" /></label>
-                </div>
-                <button class="btn btn-secondary" type="submit">Code erzeugen</button>
-              </form>
-
-              <div class="admin-note-card">
-                <strong>Code manuell einlösen</strong>
-                <small>Wenn der Scan ausfällt, reicht der Code als schneller Fallback.</small>
-                <div id="adminCodeStatus" class="admin-status-box">Bereit.</div>
-                <div class="inline-form">
-                  <input id="adminCodeValue" placeholder="z. B. PB-AB12CD" autocomplete="off" autocapitalize="characters" spellcheck="false" />
-                  <button class="btn btn-primary" type="button" id="applyAdminCodeBtn">Einlösen</button>
-                </div>
+            <form class="admin-compact-form" method="post" action="/admin/create-code">
+              <div class="admin-form-grid">
+                <label class="admin-field-span">Label<input name="label" required placeholder="2 bestellte Pizzen / +25 Punkte" /></label>
+                <label>Punkte<input name="addPoints" type="number" value="0" /></label>
+                <label>Pizzen<input name="addPizzas" type="number" value="0" /></label>
               </div>
+              <button class="btn btn-secondary" type="submit">Code erzeugen</button>
+            </form>
+
+            <div class="admin-list-card admin-list-compact">
+              ${collapsibleAdminBlock({
+                id: "recent-codes-block",
+                content: recentCodesHtml,
+                forceCollapse: true
+              })}
+            </div>
+          </section>
+
+          <section class="card admin-surface admin-inline-status">
+            <div class="admin-panel-header">
+              <div>
+                <h3>Code einlösen</h3>
+                <p>Fallback ohne Scan.</p>
+              </div>
+            </div>
+
+            <div id="adminCodeStatus" class="admin-status-box">Bereit.</div>
+            <div class="inline-form">
+              <input id="adminCodeValue" placeholder="z. B. PB-AB12CD" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+              <button class="btn btn-primary" type="button" id="applyAdminCodeBtn">Einlösen</button>
             </div>
           </section>
 
           <div class="card admin-surface admin-list-card">
-            <div class="section-head">
+            <div class="admin-panel-header">
+              <div>
               <h3>Letzte Scanner-Buchungen</h3>
-              <p>Damit das Team sofort sieht, was gerade erfolgreich verbucht wurde.</p>
+                <p>Direkt nach dem Scan sichtbar.</p>
+              </div>
             </div>
             <div id="customScanLog" class="event-list">
               <div class="admin-empty admin-log-empty">
@@ -4459,27 +4680,17 @@ app.get("/admin", adminRequired, async (req, res) => {
       </section>
 
       <section class="admin-panel" id="panel-voucher" hidden>
-        <section class="card admin-surface admin-workspace-card">
-          <div class="admin-workspace-top">
+        <section class="card admin-surface admin-workspace-card compact">
+          <div class="admin-panel-header">
             <div>
-              <span class="eyebrow">Voucher</span>
-              <h3>Voucher gezielt einlösen</h3>
-              <p>Kunden-QR scannen, offene Voucher gebündelt sehen und direkt den richtigen Vorteil einlösen.</p>
+              <h3>Voucher einlösen</h3>
+              <p>Kunde scannen und offenen Voucher direkt auswählen.</p>
             </div>
-            ${adminStepList([
-              { title: "Kunde scannen", text: "Mitglieds-QR starten und das Konto einmal erfassen." },
-              { title: "Voucher wählen", text: "Alle offenen Vorteile erscheinen gesammelt im Auswahlbereich." },
-              { title: "Direkt bestätigen", text: "Einlösen ohne Seitenwechsel oder zusätzliche Suche." }
-            ])}
+            <span class="chip">${openVoucherCount} offen</span>
           </div>
 
           <div class="admin-workspace-grid">
-            <div class="admin-control-stack">
-              <div class="admin-note-card">
-                <strong>Ablauf</strong>
-                <span>Ein Scan öffnet die komplette Voucher-Auswahl des Kunden. Danach reicht ein Tap zum Einlösen.</span>
-              </div>
-
+            <div class="admin-control-stack compact">
               <div class="button-row">
                 <button class="btn btn-primary" id="startVoucherScan">Scanner starten</button>
                 <button class="btn btn-secondary" id="stopVoucherScan" disabled>Stoppen</button>
@@ -4494,9 +4705,11 @@ app.get("/admin", adminRequired, async (req, res) => {
 
         <section class="admin-grid-two">
           <section class="card admin-surface">
-            <div class="section-head">
-              <h3>Offene Voucher</h3>
-              <p>Nach dem Scan erscheinen hier direkt alle verfügbaren Einlösungen.</p>
+            <div class="admin-panel-header">
+              <div>
+                <h3>Offene Voucher</h3>
+                <p>Auswahl nach dem Scan.</p>
+              </div>
             </div>
             <div id="voucherSelection">
               ${adminEmptyState("Noch kein Kunde gescannt.", "Scan starten, dann werden die offenen Voucher hier gebündelt angezeigt.")}
@@ -4504,9 +4717,11 @@ app.get("/admin", adminRequired, async (req, res) => {
           </section>
 
           <section class="card admin-surface admin-list-card">
-            <div class="section-head">
-              <h3>Einlösungen</h3>
-              <p>Zuletzt verbuchte Voucher für eine schnelle Rückkontrolle.</p>
+            <div class="admin-panel-header">
+              <div>
+                <h3>Einlösungen</h3>
+                <p>Zuletzt verbucht.</p>
+              </div>
             </div>
             <div id="voucherLog" class="event-list">
               <div class="admin-empty admin-log-empty">
@@ -4521,9 +4736,11 @@ app.get("/admin", adminRequired, async (req, res) => {
       <section class="admin-panel" id="panel-managing" hidden>
         <section class="admin-grid-two">
           <form class="card admin-surface admin-compact-form" method="post" action="/admin/custom-tasks">
-            <div class="section-head">
-              <h3>Neue Aktion</h3>
-              <p>Neue Social- oder Sonderaktion so kurz wie möglich anlegen.</p>
+            <div class="admin-panel-header">
+              <div>
+                <h3>Neue Aktion</h3>
+                <p>Kurze Aktion für Kunden anlegen.</p>
+              </div>
             </div>
 
             <div class="admin-form-grid">
@@ -4538,9 +4755,11 @@ app.get("/admin", adminRequired, async (req, res) => {
           </form>
 
           <div class="card admin-surface admin-list-card">
-            <div class="section-head">
-              <h3>Aktionen</h3>
-              <p>Alle aktuell sichtbaren Aktionen für deine Kunden.</p>
+            <div class="admin-panel-header">
+              <div>
+                <h3>Aktionen</h3>
+                <p>Aktive Kundenaktionen.</p>
+              </div>
             </div>
 
             ${
@@ -4567,9 +4786,11 @@ app.get("/admin", adminRequired, async (req, res) => {
 
         <section class="admin-grid-two">
           <div class="card admin-surface admin-list-card">
-            <div class="section-head">
-              <h3>Offene Prüfungen</h3>
-              <p>Einreichungen prüfen und freigeben, ohne den Überblick zu verlieren.</p>
+            <div class="admin-panel-header">
+              <div>
+                <h3>Offene Prüfungen</h3>
+                <p>Einreichungen prüfen.</p>
+              </div>
             </div>
             ${collapsibleAdminBlock({
               id: "pending-submissions-block",
@@ -4580,28 +4801,18 @@ app.get("/admin", adminRequired, async (req, res) => {
           </div>
 
           <div class="card admin-surface admin-list-card">
-            <div class="section-head">
-              <h3>Einmalcodes</h3>
-              <p>Zuletzt erzeugt und sofort sichtbar, ob schon eingelöst wurde.</p>
+            <div class="admin-panel-header">
+              <div>
+                <h3>Kunden</h3>
+                <p>Konten, Punkte und Voucher.</p>
+              </div>
             </div>
             ${collapsibleAdminBlock({
-              id: "recent-codes-block",
-              content: recentCodesHtml,
+              id: "users-table-block",
+              content: usersTableHtml,
               forceCollapse: true
             })}
           </div>
-        </section>
-
-        <section class="card admin-surface admin-table-card">
-          <div class="section-head">
-            <h3>Kundenübersicht</h3>
-            <p>Punkte, Pizzen und offene Voucher gebündelt in einer kompakten Übersicht.</p>
-          </div>
-          ${collapsibleAdminBlock({
-            id: "users-table-block",
-            content: usersTableHtml,
-            forceCollapse: true
-          })}
         </section>
       </section>
     </div>
@@ -4610,7 +4821,6 @@ app.get("/admin", adminRequired, async (req, res) => {
     <script>
       const pinInput = document.getElementById("adminSharedPin");
       const pinReadyChip = document.getElementById("pinReadyChip");
-      const pinHelperText = document.getElementById("pinHelperText");
       const togglePinVisibilityBtn = document.getElementById("togglePinVisibility");
       const panelButtons = Array.from(document.querySelectorAll(".adminTabBtn"));
       const jumpButtons = Array.from(document.querySelectorAll(".adminJumpBtn"));
@@ -4641,12 +4851,6 @@ app.get("/admin", adminRequired, async (req, res) => {
           pinReadyChip.textContent = hasPin ? "PIN bereit" : "PIN fehlt";
           pinReadyChip.classList.toggle("chip-success", hasPin);
           pinReadyChip.classList.toggle("chip-danger", !hasPin);
-        }
-
-        if (pinHelperText) {
-          pinHelperText.textContent = hasPin
-            ? "Scan, Voucher und Code-Einlösung sind freigeschaltet."
-            : "Ohne PIN sind Scan, Voucher und Code-Einlösung gesperrt.";
         }
       }
 
