@@ -108,16 +108,16 @@ code {
 
 .brand-icon,
 .brand.brand-expanded .brand-icon {
-  width: 96px;
-  height: 96px;
-  padding: 8px;
+  width: 104px;
+  height: 82px;
+  padding: 6px;
   overflow: hidden;
   border-radius: 22px;
   display: grid;
   place-items: center;
-  background: #fff7f0;
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 24px rgba(56, 31, 13, 0.08);
+  background: #ffffff;
+  border: 1px solid rgba(119, 78, 45, 0.12);
+  box-shadow: 0 12px 26px rgba(45, 28, 14, 0.07);
   flex: 0 0 auto;
 }
 
@@ -126,6 +126,8 @@ code {
   height: 100%;
   display: block;
   object-fit: contain;
+  object-position: center;
+  border-radius: 16px;
 }
 
 .brand-title,
@@ -601,16 +603,6 @@ select:focus {
   gap: 12px;
 }
 
-.reward-card::after {
-  content: "";
-  position: absolute;
-  inset: auto 16px 16px auto;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: radial-gradient(circle, rgba(247, 216, 131, 0.5), transparent 70%);
-  pointer-events: none;
-}
 
 .reward-card strong {
   font-size: 15px;
@@ -628,9 +620,9 @@ select:focus {
 }
 
 .reward-open {
-  background: linear-gradient(180deg, #fff8f0 0%, #fffdf9 100%);
-  border-color: rgba(210, 71, 31, 0.2);
-  box-shadow: inset 0 0 0 1px rgba(191, 90, 52, 0.04);
+  background: #fffdf9;
+  border-color: rgba(119, 78, 45, 0.12);
+  box-shadow: 0 12px 26px rgba(45, 28, 14, 0.045);
 }
 
 .reward-card-top,
@@ -1103,10 +1095,10 @@ th {
 
   .brand-icon,
   .brand.brand-expanded .brand-icon {
-    width: 64px;
-    height: 64px;
-    padding: 6px;
-    border-radius: 16px;
+    width: 86px;
+    height: 68px;
+    padding: 5px;
+    border-radius: 18px;
   }
 
   .brand-title,
@@ -1285,3 +1277,32 @@ th {
     align-items: stretch;
   }
 }
+
+
+/* Professional polish overrides */
+.topbar,
+.card,
+.admin-surface,
+.admin-nav-card {
+  background: rgba(255, 253, 250, 0.94);
+  border-color: rgba(119, 78, 45, 0.11);
+  box-shadow: 0 18px 42px rgba(45, 28, 14, 0.065);
+}
+
+.card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.card:hover { border-color: rgba(119, 78, 45, 0.16); box-shadow: 0 22px 54px rgba(45, 28, 14, 0.08); }
+.btn { letter-spacing: -0.01em; }
+.btn-primary { background: linear-gradient(135deg, #a84522 0%, #d9783f 100%); box-shadow: 0 10px 22px rgba(191, 90, 52, 0.16); }
+.btn-secondary,
+.btn-ghost,
+.topnav a,
+.linklike { background: rgba(255, 255, 255, 0.88); border-color: rgba(119, 78, 45, 0.14); }
+input,
+textarea,
+select { background: rgba(255, 255, 255, 0.94); }
+.reward-card,
+.reward-card.reward-open { background: #fffdf9; border: 1px solid rgba(119, 78, 45, 0.12); box-shadow: 0 12px 26px rgba(45, 28, 14, 0.045); }
+.reward-card::after { content: none !important; display: none !important; }
+.reward-card .btn-primary { box-shadow: none; }
+.reward-card .btn-primary:hover { box-shadow: 0 8px 18px rgba(45, 28, 14, 0.08); }
+.reward-status { color: var(--muted); }

@@ -46,7 +46,6 @@ const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "Loyalitätsprogramm";
 const BRAND_LOGO_FILENAME = process.env.BRAND_LOGO_FILENAME || "1773058332279.jfif";
 const brandLogoPath = path.join(__dirname, BRAND_LOGO_FILENAME);
 const SESSION_SECRET = process.env.SESSION_SECRET || "change_me_super_secret";
-const STAFF_PIN = process.env.STAFF_PIN || "2468";
 const PASSWORD_RESET_EXPIRES_MINUTES = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || 30);
 
 const INSTAGRAM_URL = process.env.INSTAGRAM_URL || "https://www.instagram.com/pizza_berlino/";
@@ -490,9 +489,6 @@ function assertRuntimeSecurity() {
     throw new Error("SESSION_SECRET must be set in production");
   }
 
-  if (process.env.NODE_ENV === "production" && STAFF_PIN === "2468") {
-    throw new Error("STAFF_PIN must be changed in production");
-  }
 }
 
 
@@ -637,8 +633,8 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         display:flex;
         align-items:center;
         justify-content:space-between;
-        gap:20px;
-        padding:20px 24px;
+        gap:18px;
+        padding:18px 22px;
         border-radius:var(--radius-xl);
         background:rgba(255,253,250,.88);
         border:1px solid var(--line);
@@ -655,14 +651,14 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       }
 
       .brand.brand-expanded .brand-icon {
-        width:116px;
-        height:116px;
-        padding:10px;
+        width:104px;
+        height:82px;
+        padding:6px;
         overflow:hidden;
-        border-radius:28px;
-        background:linear-gradient(180deg,#fffaf6 0%,#fff2e7 100%);
-        border:1px solid rgba(191,90,52,.16);
-        box-shadow:0 14px 30px rgba(56,31,13,.1);
+        border-radius:22px;
+        background:#fff;
+        border:1px solid rgba(119,78,45,.12);
+        box-shadow:0 12px 26px rgba(45,28,14,.07);
         display:grid;
         place-items:center;
         flex:0 0 auto;
@@ -687,7 +683,7 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         object-fit:contain;
         object-position:center;
         display:block;
-        transform:scale(.94);
+        border-radius:16px;
       }
 
       .topnav {
@@ -1012,6 +1008,45 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         top: auto !important;
       }
 
+
+
+      .topbar,
+      .card,
+      .admin-surface,
+      .admin-nav-card {
+        background:rgba(255,253,250,.94);
+        border-color:rgba(119,78,45,.11);
+        box-shadow:0 18px 42px rgba(45,28,14,.065);
+      }
+
+      .card {
+        transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      }
+
+      .card:hover {
+        border-color:rgba(119,78,45,.16);
+        box-shadow:0 22px 54px rgba(45,28,14,.08);
+      }
+
+      .btn { letter-spacing:-.01em; }
+
+      .btn-primary {
+        background:linear-gradient(135deg,#a84522 0%,#d9783f 100%);
+        box-shadow:0 10px 22px rgba(191,90,52,.16);
+      }
+
+      .btn-secondary,
+      .btn-ghost,
+      .topnav a,
+      .linklike {
+        background:rgba(255,255,255,.88);
+        border-color:rgba(119,78,45,.14);
+      }
+
+      input,
+      textarea,
+      select { background:rgba(255,255,255,.94); }
+
       @media (max-width: 920px) {
         .grid.two,
         .summary-grid,
@@ -1028,21 +1063,20 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         }
 
         .topbar {
-          padding:16px;
+          padding:14px;
           flex-direction:column;
           align-items:flex-start;
         }
 
         .brand.brand-expanded {
           width:100%;
-          gap:14px;
         }
 
         .brand.brand-expanded .brand-icon {
-          width:84px;
-          height:84px;
-          border-radius:22px;
-          padding:8px;
+          width:86px;
+          height:68px;
+          border-radius:18px;
+          padding:5px;
         }
 
         .brand.brand-expanded .brand-title {
@@ -1358,50 +1392,12 @@ function collapsibleAdminBlock({ id, label = "mehr", content, count = 0, forceCo
   `;
 }
 
-function adminMetricCard(value, label, detail = "") {
-  return `
-    <div class="admin-stat-box">
-      <strong>${escapeHtml(value)}</strong>
-      <span>${escapeHtml(label)}</span>
-      ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
-    </div>
-  `;
-}
-
-function adminStepList(items = []) {
-  return `
-    <div class="admin-steps">
-      ${items.map((item, index) => `
-        <div class="admin-step">
-          <span class="admin-step-index">${index + 1}</span>
-          <div>
-            <strong>${escapeHtml(item.title)}</strong>
-            <small>${escapeHtml(item.text)}</small>
-          </div>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function adminEmptyState(title, text) {
-  return `
-    <div class="admin-empty">
-      <strong>${escapeHtml(title)}</strong>
-      <span>${escapeHtml(text)}</span>
-    </div>
-  `;
-}
-
 async function findUserByWalletPayload(payload) {
   if (!payload.startsWith("lpw:")) return null;
   const walletToken = payload.replace(/^lpw:/, "");
   return prisma.user.findUnique({ where: { walletToken } });
 }
 
-function assertStaffPin(pin) {
-  return String(pin || "").trim() === STAFF_PIN;
-}
 
 async function hasCustomScanAlreadyRun(userId, configHash) {
   const todayEvents = await prisma.event.findMany({
@@ -1989,27 +1985,6 @@ app.get("/account", authRequired, async (req, res) => {
       ? `Dein nächster Vorteil ist schon freigeschaltet.`
       : `Du bist ${rewardProgress.remaining} Punkte von ${rewardProgress.nextReward.title} entfernt.`;
 
-  const accountStatsHtml = `
-    <div class="account-stats-grid">
-      <div class="account-stat-card">
-        <strong>${user.points}</strong>
-        <span>Punkte</span>
-      </div>
-      <div class="account-stat-card">
-        <strong>${user.pizzaCount}</strong>
-        <span>Pizzen</span>
-      </div>
-      <div class="account-stat-card">
-        <strong>${vouchers.length}</strong>
-        <span>Voucher offen</span>
-      </div>
-      <div class="account-stat-card">
-        <strong>${escapeHtml(rewardProgress.nextReward.title)}</strong>
-        <span>${rewardProgress.remaining === 0 ? "bereit" : `${rewardProgress.remaining} Punkte fehlen`}</span>
-      </div>
-    </div>
-  `;
-
   const rewardCardsHtml = rewards.map(reward => {
     return `
       <div class="reward-card ${reward.canRedeem ? "reward-open" : ""}">
@@ -2232,32 +2207,6 @@ app.get("/account", authRequired, async (req, res) => {
         margin:0;
         color:#6e6258;
         max-width:54ch;
-      }
-
-      .account-stats-grid {
-        display:grid;
-        grid-template-columns:repeat(4,minmax(0,1fr));
-        gap:12px;
-      }
-
-      .account-stat-card {
-        padding:14px 16px;
-        border-radius:18px;
-        background:#fff;
-        border:1px solid rgba(191,90,52,.12);
-      }
-
-      .account-stat-card strong {
-        display:block;
-        font-size:22px;
-        line-height:1.05;
-        margin-bottom:6px;
-      }
-
-      .account-stat-card span {
-        display:block;
-        color:#74685d;
-        font-size:13px;
       }
 
       .hero-qr-shell {
@@ -2559,14 +2508,35 @@ app.get("/account", authRequired, async (req, res) => {
         color:#8a7b6f;
       }
 
+
+
+      .reward-card,
+      .reward-card.reward-open {
+        position:relative;
+        background:#fffdf9;
+        border:1px solid rgba(119,78,45,.12);
+        box-shadow:0 12px 26px rgba(45,28,14,.045);
+      }
+
+      .reward-card::after {
+        content:none !important;
+        display:none !important;
+      }
+
+      .reward-open {
+        background:#fffdf9;
+        border-color:rgba(119,78,45,.12);
+      }
+
+      .reward-card .btn-primary { box-shadow:none; }
+      .reward-card .btn-primary:hover { box-shadow:0 8px 18px rgba(45,28,14,.08); }
+      .reward-status { color:#6d5b4f; }
+      .reward-card form { margin:0; }
+
       @media (max-width: 920px) {
         .dashboard-hero,
         .progress-card-inner {
           grid-template-columns:1fr;
-        }
-
-        .account-stats-grid {
-          grid-template-columns:repeat(2,minmax(0,1fr));
         }
 
         .task-meta {
@@ -2585,12 +2555,10 @@ app.get("/account", authRequired, async (req, res) => {
         <div class="eyebrow">Hi ${escapeHtml(firstName)}</div>
         <h2>Dein Kundenkonto</h2>
         <p>${escapeHtml(accountHeroCopy)}</p>
-        ${accountStatsHtml}
       </div>
 
       <div class="hero-qr-shell">
         <img class="hero-qr" src="${qr}" alt="Member QR" />
-        <span>Scanbereit im Laden</span>
       </div>
     </section>
 
@@ -2971,106 +2939,28 @@ app.get("/wallet", authRequired, async (req, res) => {
   const user = req.user;
   const qr = await memberQrDataUrl(user);
   const activeVoucher = (await getOpenVouchers(user.id))[0] || null;
-  const walletHead = `
-    <style>
-      .wallet-page .page {
-        display:grid;
-        gap:18px;
-      }
-
-      .wallet-hero-card {
-        display:grid;
-        grid-template-columns:minmax(0,1fr) minmax(260px,320px);
-        gap:18px;
-        align-items:center;
-        background:linear-gradient(135deg,#fff8f2 0%,#fffdf9 100%);
-      }
-
-      .wallet-hero-card h2 {
-        margin:6px 0 10px;
-        font-size:clamp(28px,4vw,38px);
-        line-height:1.02;
-      }
-
-      .wallet-hero-card p {
-        margin:0;
-        color:#6f6257;
-        max-width:56ch;
-      }
-
-      .wallet-meta-grid {
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:10px;
-        margin-top:16px;
-      }
-
-      .wallet-meta-box {
-        padding:14px 16px;
-        border-radius:18px;
-        background:#fff;
-        border:1px solid rgba(191,90,52,.12);
-      }
-
-      .wallet-meta-box strong {
-        display:block;
-        margin-bottom:6px;
-      }
-
-      .wallet-qr-shell {
-        display:grid;
-        gap:12px;
-        justify-items:center;
-        padding:16px;
-        border-radius:22px;
-        background:#fff;
-        border:1px solid rgba(191,90,52,.12);
-      }
-
-      .wallet-qr-shell code {
-        word-break:break-all;
-      }
-
-      @media (max-width: 920px) {
-        .wallet-hero-card {
-          grid-template-columns:1fr;
-        }
-      }
-    </style>
-  `;
 
   const body = `
     ${renderFlash(req)}
 
-    <section class="card wallet-hero-card">
-      <div>
-        <div class="eyebrow">Wallet</div>
-        <h2>Deine digitale Kundenkarte</h2>
-        <p>Alles an einem Ort: Scan im Laden, Apple Wallet Pass und dein aktuell offener Vorteil.</p>
+    <section class="grid two">
+      <div class="card">
+        <h3>Digitale Kundenkarte</h3>
+        <p>Hier findest du deine Karte für Scans im Laden und für deine Wallet.</p>
         <div class="button-row">
           <a class="btn btn-primary" href="/wallet/pass">Wallet Pass laden</a>
           <a class="btn btn-secondary" href="/account">Zurück zum Konto</a>
         </div>
-
-        <div class="wallet-meta-grid">
-          <div class="wallet-meta-box">
-            <strong>Status</strong>
-            <span>${activeVoucher ? "Voucher offen" : "Kein offener Voucher"}</span>
-          </div>
-          <div class="wallet-meta-box">
-            <strong>Wallet</strong>
-            <span>Pass kann jederzeit neu geladen werden</span>
-          </div>
+        <div class="status-line">
+          ${
+            activeVoucher
+              ? `Offener Gutschein: <strong>${escapeHtml(activeVoucher.title)}</strong> (${escapeHtml(activeVoucher.code)})`
+              : `Aktuell ist kein Gutschein offen`
+          }
         </div>
-
-        ${
-          activeVoucher
-            ? `<div class="status-line" style="margin-top:14px">Offener Gutschein: <strong>${escapeHtml(activeVoucher.title)}</strong> (${escapeHtml(activeVoucher.code)})</div>`
-            : `<div class="status-line" style="margin-top:14px">Aktuell ist kein Gutschein offen</div>`
-        }
       </div>
 
-      <div class="wallet-qr-shell">
+      <div class="card center-card">
         <img class="qr-image large" src="${qr}" alt="Wallet QR" />
         <div class="status-line"><code>lpw:${escapeHtml(user.walletToken)}</code></div>
       </div>
@@ -3081,9 +2971,7 @@ app.get("/wallet", authRequired, async (req, res) => {
     title: "Wallet",
     user,
     body,
-    description: "Deine Pizza-Berlino-Karte für Punkte, Rewards und Gutscheine.",
-    head: walletHead,
-    pageClass: "wallet-page"
+    description: "Deine Pizza-Berlino-Karte für Punkte, Rewards und Gutscheine."
   }));
 });
 
@@ -3140,10 +3028,8 @@ app.get("/staff/redeem", adminRequired, (req, res) => {
 });
 
 app.post("/admin/checkin-scan", adminRequired, async (req, res) => {
-  const pin = String(req.body.pin || "").trim();
   const payload = String(req.body.payload || "").trim();
 
-  if (!assertStaffPin(pin)) return res.status(400).json({ ok: false, error: "PIN falsch" });
   if (!payload.startsWith("lpw:")) return res.status(400).json({ ok: false, error: "Ungültiger QR" });
 
   const user = await findUserByWalletPayload(payload);
@@ -3182,11 +3068,9 @@ app.post("/admin/checkin-scan", adminRequired, async (req, res) => {
 });
 
 app.post("/admin/custom-scan", adminRequired, async (req, res) => {
-  const pin = String(req.body.pin || "").trim();
   const payload = String(req.body.payload || "").trim();
   const cfg = await ensureScannerConfig();
 
-  if (!assertStaffPin(pin)) return res.status(400).json({ ok: false, error: "PIN falsch" });
   if (!cfg.active) return res.status(400).json({ ok: false, error: "Scanner deaktiviert" });
   if (!payload.startsWith("lpw:")) return res.status(400).json({ ok: false, error: "Ungültiger QR" });
 
@@ -3231,12 +3115,8 @@ app.post("/admin/custom-scan", adminRequired, async (req, res) => {
 });
 
 app.post("/admin/redeem-scan", adminRequired, async (req, res) => {
-  const pin = String(req.body.pin || "").trim();
   const payload = String(req.body.payload || "").trim();
 
-  if (!assertStaffPin(pin)) {
-    return res.status(400).json({ ok: false, error: "PIN falsch" });
-  }
 
   if (!payload.startsWith("lpw:")) {
     return res.status(400).json({ ok: false, error: "Ungültiger QR" });
@@ -3269,12 +3149,8 @@ app.post("/admin/redeem-scan", adminRequired, async (req, res) => {
 });
 
 app.post("/admin/redeem-voucher", adminRequired, async (req, res) => {
-  const pin = String(req.body.pin || "").trim();
   const voucherId = String(req.body.voucherId || "").trim();
 
-  if (!assertStaffPin(pin)) {
-    return res.status(400).json({ ok: false, error: "PIN falsch" });
-  }
 
   const voucher = await prisma.voucher.findUnique({ where: { id: voucherId } });
   if (!voucher) return res.status(404).json({ ok: false, error: "Voucher nicht gefunden" });
@@ -3320,12 +3196,8 @@ app.post("/admin/redeem-voucher", adminRequired, async (req, res) => {
 });
 
 app.post("/admin/redeem-voucher-code", adminRequired, async (req, res) => {
-  const pin = String(req.body.pin || "").trim();
   const code = normalizeCodeInput(req.body.code || "");
 
-  if (!assertStaffPin(pin)) {
-    return res.status(400).json({ ok: false, error: "PIN falsch" });
-  }
 
   if (!code) {
     return res.status(400).json({ ok: false, error: "Code fehlt" });
@@ -3414,11 +3286,6 @@ app.get("/admin", adminRequired, async (req, res) => {
   ]);
 
   const voucherCountMap = new Map(voucherCounts.map(entry => [entry.userId, entry._count._all]));
-  const activeCustomTaskCount = customTasks.length;
-  const openCodeCount = recentCodes.filter(code => !code.usedAt).length;
-  const scannerModeChip = scannerConfig.active
-    ? `<span class="chip chip-success">Scanner aktiv</span>`
-    : `<span class="chip chip-danger">Scanner pausiert</span>`;
 
   const pendingSubmissionsHtml = pendingSubmissions.length
     ? pendingSubmissions.map(s => `
@@ -3434,7 +3301,7 @@ app.get("/admin", adminRequired, async (req, res) => {
           </div>
         </div>
       `).join("")
-    : adminEmptyState("Keine offenen Prüfungen.", "Neue Einreichungen landen automatisch hier.");
+    : `<div class="admin-empty">Keine offenen Prüfungen.</div>`;
 
   const recentCodesHtml = recentCodes.length
     ? `<div class="event-list">${recentCodes.map(c => `
@@ -3446,308 +3313,104 @@ app.get("/admin", adminRequired, async (req, res) => {
           <div class="event-side">${c.usedAt ? "eingelöst" : "offen"}</div>
         </div>
       `).join("")}</div>`
-    : adminEmptyState("Noch keine Codes.", "Erstellte Einmalcodes erscheinen automatisch hier.");
+    : `<div class="admin-empty">Noch keine Codes.</div>`;
 
-  const usersTableHtml = users.length
-    ? `
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Name</th><th>Punkte</th><th>Pizzen</th><th>Voucher</th></tr>
-          </thead>
-          <tbody>
-            ${users.map(u => `
-              <tr>
-                <td>
-                  ${escapeHtml(u.name)}
-                  <small>${escapeHtml(u.email)}</small>
-                </td>
-                <td>${u.points}</td>
-                <td>${u.pizzaCount}</td>
-                <td>${voucherCountMap.get(u.id) || 0}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `
-    : adminEmptyState("Noch keine Kunden registriert.", "Sobald sich Mitglieder anmelden, erscheint hier die Übersicht.");
+  const usersTableHtml = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Punkte</th><th>Pizzen</th><th>Voucher</th></tr>
+        </thead>
+        <tbody>
+          ${users.map(u => `
+            <tr>
+              <td>
+                ${escapeHtml(u.name)}
+                <small>${escapeHtml(u.email)}</small>
+              </td>
+              <td>${u.points}</td>
+              <td>${u.pizzaCount}</td>
+              <td>${voucherCountMap.get(u.id) || 0}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 
   const adminHead = `
     <style>
       .admin-dashboard-page .page {
         display:grid;
-        gap:20px;
+        gap:18px;
       }
 
       .admin-shell {
         display:grid;
-        gap:20px;
+        gap:18px;
       }
 
       .admin-top-grid {
         display:grid;
-        grid-template-columns:minmax(0,1fr) minmax(300px,360px);
-        gap:20px;
+        grid-template-columns:1fr;
+        gap:18px;
         align-items:stretch;
       }
 
       .admin-hero-card,
-      .admin-pin-card,
       .admin-surface,
       .admin-list-card,
-      .admin-table-card,
-      .admin-nav-card {
+      .admin-table-card {
         border:1px solid rgba(191,90,52,.12);
-        box-shadow:0 18px 38px rgba(56,31,13,.06);
+        box-shadow:0 14px 32px rgba(56,31,13,.05);
       }
 
       .admin-hero-card {
-        padding:26px;
-        background:
-          radial-gradient(circle at top right, rgba(247,216,131,.32), transparent 28%),
-          linear-gradient(135deg,#fffaf5 0%,#fffdfb 44%,#fff1e7 100%);
-        position:relative;
-        overflow:hidden;
+        padding:22px;
+        background:linear-gradient(135deg,#fff8f2 0%,#fffdf9 100%);
       }
 
       .admin-hero-copy {
-        position:relative;
-        z-index:1;
         display:grid;
-        gap:18px;
+        gap:16px;
         height:100%;
-      }
-
-      .admin-kicker {
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        color:#9b4d27;
-        font-size:12px;
-        font-weight:800;
-        text-transform:uppercase;
-        letter-spacing:.14em;
-      }
-
-      .admin-hero-head {
-        display:flex;
-        justify-content:space-between;
-        gap:18px;
-        align-items:flex-start;
-      }
-
-      .admin-hero-head h2 {
-        margin:0;
-        font-size:clamp(32px,4.4vw,46px);
-        line-height:.98;
-        letter-spacing:-.05em;
-        max-width:13ch;
-      }
-
-      .admin-hero-head p {
-        margin:10px 0 0;
-        max-width:58ch;
-        color:#67594d;
-      }
-
-      .admin-hero-badges {
-        display:flex;
-        flex-wrap:wrap;
-        gap:10px;
-        justify-content:flex-end;
       }
 
       .admin-stats-inline {
         display:grid;
-        grid-template-columns:repeat(4,minmax(0,1fr));
+        grid-template-columns:repeat(3,minmax(0,1fr));
         gap:12px;
       }
 
       .admin-stat-box {
-        padding:16px 18px;
-        border-radius:20px;
-        background:rgba(255,255,255,.86);
+        padding:14px 16px;
+        border-radius:18px;
+        background:#fff;
         border:1px solid rgba(191,90,52,.1);
-        backdrop-filter:blur(10px);
       }
 
       .admin-stat-box strong {
         display:block;
-        font-size:30px;
+        font-size:28px;
         line-height:1;
         margin-bottom:6px;
       }
 
       .admin-stat-box span {
-        display:block;
-        color:#594c42;
+        color:#76685c;
         font-size:14px;
-        font-weight:700;
       }
 
-      .admin-stat-box small {
-        display:block;
-        margin-top:6px;
-        color:#7b6f64;
-        font-size:12px;
-      }
-
-      .admin-current-config {
-        display:grid;
-        grid-template-columns:minmax(0,1fr) auto;
-        gap:16px;
-        align-items:center;
-        padding:18px 20px;
-        border-radius:22px;
-        background:rgba(255,255,255,.78);
-        border:1px solid rgba(191,90,52,.12);
-      }
-
-      .admin-current-config small {
-        display:block;
-        color:#8d5939;
-        font-size:11px;
-        font-weight:800;
-        text-transform:uppercase;
-        letter-spacing:.1em;
-      }
-
-      .admin-current-config strong {
-        display:block;
-        margin:6px 0 8px;
-        font-size:22px;
-        line-height:1.05;
-      }
-
-      .admin-current-config p {
-        margin:0;
-        color:#6d6157;
-      }
-
-      .admin-current-config .btn {
-        white-space:nowrap;
-      }
-
-      .admin-pin-card {
-        padding:22px;
-        display:grid;
-        gap:16px;
-        align-content:start;
-        background:#fff;
-      }
-
-      .admin-pin-card h3 {
-        margin:0;
-        font-size:20px;
-      }
-
-      .admin-pin-card p {
-        margin:0;
-        color:#6f6257;
-      }
-
-      .admin-pin-card label span {
-        color:#6f6257;
-        font-weight:700;
-      }
-
-      .admin-pin-card input {
-        height:56px;
-        font-size:22px;
-        letter-spacing:.08em;
-      }
-
-      .admin-pin-status-row {
-        display:flex;
-        justify-content:space-between;
-        gap:10px;
-        align-items:center;
-      }
-
-      .btn-small {
-        min-height:38px;
-        padding:0 14px;
-        border-radius:12px;
-        font-size:13px;
-      }
-
-      .admin-pin-helper {
-        padding:14px 16px;
-        border-radius:18px;
-        background:#fffaf6;
-        border:1px solid rgba(191,90,52,.12);
-        color:#6f6257;
-      }
-
-      .admin-quick-list {
-        display:grid;
-        gap:12px;
-      }
-
-      .admin-quick-item {
-        display:flex;
-        gap:12px;
-        align-items:flex-start;
-        padding-top:12px;
-        border-top:1px dashed rgba(123,111,100,.22);
-      }
-
-      .admin-quick-item:first-child {
-        padding-top:0;
-        border-top:none;
-      }
-
-      .admin-quick-step {
-        width:32px;
-        height:32px;
-        border-radius:999px;
-        display:inline-grid;
-        place-items:center;
-        background:#fff2e8;
-        border:1px solid rgba(191,90,52,.14);
-        color:#9b4d27;
-        font-weight:800;
-        flex:0 0 auto;
-      }
-
-      .admin-quick-item strong {
-        display:block;
-        margin-bottom:4px;
-      }
-
-      .admin-quick-item small {
-        display:block;
-        color:#7a6d61;
-        line-height:1.45;
-      }
 
       .admin-nav-card {
-        position:sticky;
-        top:14px;
-        z-index:4;
-        padding:14px;
-        border-radius:24px;
-        background:rgba(255,250,246,.92);
-        backdrop-filter:blur(12px);
-      }
-
-      .admin-nav-head {
-        display:flex;
-        justify-content:space-between;
-        gap:16px;
-        align-items:flex-start;
-        margin-bottom:12px;
-      }
-
-      .admin-nav-head h3 {
-        margin:0 0 4px;
-        font-size:18px;
-      }
-
-      .admin-nav-head p {
-        margin:0;
-        color:#72665b;
+        position: static !important;
+        top: auto !important;
+        padding: 12px;
+        border-radius: 22px;
+        background: rgba(255,250,246,.88);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(191,90,52,.12);
+        box-shadow: 0 12px 28px rgba(56,31,13,.05);
       }
 
       .admin-tab-row {
@@ -3757,52 +3420,13 @@ app.get("/admin", adminRequired, async (req, res) => {
       }
 
       .admin-tab-btn {
-        min-height:48px;
-        padding-inline:18px;
-      }
-
-      .admin-tab-btn[aria-pressed="true"] {
-        box-shadow:0 14px 28px rgba(191,90,52,.18);
+        min-height:46px;
+        padding-inline:16px;
       }
 
       .admin-panel {
         display:grid;
         gap:18px;
-      }
-
-      .admin-workspace-card {
-        padding:22px;
-      }
-
-      .admin-workspace-top {
-        display:flex;
-        justify-content:space-between;
-        gap:18px;
-        align-items:flex-start;
-        margin-bottom:18px;
-      }
-
-      .admin-workspace-top h3 {
-        font-size:28px;
-      }
-
-      .admin-workspace-top p {
-        margin:8px 0 0;
-        color:#6f6257;
-        max-width:58ch;
-      }
-
-      .admin-workspace-grid {
-        display:grid;
-        grid-template-columns:minmax(0,340px) minmax(0,1fr);
-        gap:18px;
-        align-items:stretch;
-      }
-
-      .admin-control-stack {
-        display:grid;
-        gap:14px;
-        align-content:start;
       }
 
       .admin-grid-two {
@@ -3820,7 +3444,7 @@ app.get("/admin", adminRequired, async (req, res) => {
       .admin-surface {
         background:#fff;
         border-radius:24px;
-        padding:20px;
+        padding:18px;
       }
 
       .admin-surface .section-head {
@@ -3836,30 +3460,12 @@ app.get("/admin", adminRequired, async (req, res) => {
         margin:0;
       }
 
-      .admin-note-card {
-        padding:16px 18px;
-        border-radius:20px;
-        background:#fffaf6;
-        border:1px solid rgba(191,90,52,.12);
-        display:grid;
-        gap:6px;
-      }
-
-      .admin-note-card strong {
-        font-size:15px;
-      }
-
-      .admin-note-card span,
-      .admin-note-card small {
-        color:#6f6257;
-        line-height:1.45;
-      }
-
       .admin-mini-note {
         display:inline-flex;
         align-items:center;
         gap:8px;
-        padding:10px 12px;
+        margin-top:12px;
+        padding:8px 10px;
         border-radius:999px;
         background:#fff7f1;
         border:1px solid rgba(191,90,52,.12);
@@ -3868,19 +3474,18 @@ app.get("/admin", adminRequired, async (req, res) => {
       }
 
       .admin-status-box {
-        margin-top:0;
-        padding:14px 16px;
-        border-radius:18px;
+        margin-top:14px;
+        padding:12px 14px;
+        border-radius:16px;
         background:#fffaf6;
         border:1px solid rgba(191,90,52,.12);
-        font-weight:700;
       }
 
       .reader {
-        min-height:380px;
-        border-radius:24px;
+        min-height:320px;
+        border-radius:20px;
         background:
-          linear-gradient(180deg,rgba(191,90,52,.03) 0%,rgba(255,255,255,.72) 100%),
+          linear-gradient(180deg,rgba(191,90,52,.03) 0%,rgba(255,255,255,.6) 100%),
           #fffaf6;
         border:1px dashed rgba(191,90,52,.22);
         overflow:hidden;
@@ -4015,83 +3620,13 @@ app.get("/admin", adminRequired, async (req, res) => {
         gap:14px;
       }
 
-      .admin-placeholder-list {
-        display:grid;
-        gap:12px;
-      }
-
-      .admin-steps {
-        display:grid;
-        gap:10px;
-        min-width:230px;
-      }
-
-      .admin-step {
-        display:flex;
-        gap:10px;
-        align-items:flex-start;
-        padding:12px 14px;
-        border-radius:18px;
-        background:rgba(255,255,255,.78);
-        border:1px solid rgba(191,90,52,.12);
-      }
-
-      .admin-step-index {
-        width:30px;
-        height:30px;
-        border-radius:999px;
-        display:inline-grid;
-        place-items:center;
-        background:#fff2e8;
-        color:#9b4d27;
-        font-weight:800;
-        flex:0 0 auto;
-      }
-
-      .admin-step strong {
-        display:block;
-        margin-bottom:4px;
-      }
-
-      .admin-step small {
-        display:block;
-        color:#7a6d61;
-        line-height:1.45;
-      }
-
       .admin-compact-form {
         display:grid;
-        gap:12px;
-      }
-
-      .admin-form-grid {
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:12px;
-      }
-
-      .admin-form-grid .admin-field-span {
-        grid-column:1 / -1;
+        gap:10px;
       }
 
       .admin-compact-form .check-row {
-        margin-top:0;
-      }
-
-      .admin-toggle-grid {
-        display:grid;
-        gap:10px;
-      }
-
-      .check-row {
-        display:flex;
-        align-items:center;
-        gap:10px;
-        font-weight:700;
-      }
-
-      .check-row input {
-        width:auto;
+        margin-top:2px;
       }
 
       .admin-inline-top {
@@ -4099,11 +3634,6 @@ app.get("/admin", adminRequired, async (req, res) => {
         justify-content:space-between;
         gap:12px;
         align-items:flex-start;
-      }
-
-      .admin-manual-stack {
-        display:grid;
-        gap:14px;
       }
 
       .admin-disclosure {
@@ -4128,364 +3658,43 @@ app.get("/admin", adminRequired, async (req, res) => {
         margin-bottom:12px;
       }
 
-      .chip {
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        padding:8px 10px;
-        border-radius:999px;
-        background:#fff7f1;
-        border:1px solid rgba(191,90,52,.12);
-        color:#84553b;
-        font-size:13px;
-        white-space:nowrap;
-      }
-
-      .chip.chip-success {
-        background:#eef8f1;
-        border-color:rgba(44,122,91,.22);
-        color:#255f48;
-      }
-
-      .chip.chip-danger {
-        background:#fff2f2;
-        border-color:rgba(181,69,69,.2);
-        color:#8f3535;
-      }
-
-      .voucher-select-grid {
-        display:grid;
-        grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-        gap:12px;
-      }
-
-      .voucher-select-card {
-        padding:16px;
-        border-radius:18px;
-        background:#fffaf6;
-        border:1px solid rgba(191,90,52,.12);
-        display:grid;
-        gap:14px;
-      }
-
-      .voucher-select-top {
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-      }
-
-      .voucher-code-line {
-        margin-top:6px;
-        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-        color:#2d241d;
-      }
-
-      .admin-selection-head {
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-        align-items:flex-start;
-        margin-bottom:14px;
-      }
-
-      .admin-selection-head strong {
-        display:block;
-        margin-bottom:4px;
-      }
-
-      .admin-selection-head small {
-        color:#7a6d61;
-      }
-
-      .admin-table-card table {
-        width:100%;
-        min-width:560px;
-        border-collapse:collapse;
-      }
-
-      .table-wrap {
-        overflow:auto;
-      }
-
-      .admin-table-card th,
-      .admin-table-card td {
-        padding:12px 10px;
-        border-bottom:1px solid rgba(123,111,100,.14);
-        vertical-align:top;
-        text-align:left;
-      }
-
-      .admin-table-card th {
-        font-size:13px;
-        color:#7d7064;
-        font-weight:700;
-      }
-
-      .admin-table-card td small {
-        display:block;
-        color:#84776d;
-        margin-top:4px;
-      }
-
-      .admin-empty {
-        padding:16px;
-        border-radius:18px;
-        background:#fbfaf8;
-        border:1px dashed rgba(123,111,100,.22);
-        color:#7d7064;
-        display:grid;
-        gap:4px;
-      }
-
-      .admin-empty strong {
-        color:#44362d;
-      }
-
-      .admin-log-empty {
-        margin-top:0;
-      }
-
-      .admin-top-strip {
-        display:grid;
-        gap:16px;
-        padding:18px 20px;
-      }
-
-      .admin-strip-main {
-        display:grid;
-        gap:14px;
-      }
-
-      .admin-strip-copy h2 {
-        margin:6px 0 4px;
-        font-size:32px;
-        line-height:1;
-      }
-
-      .admin-strip-copy p {
-        margin:0;
-        color:#6f6257;
-      }
-
-      .admin-stats-inline.admin-stats-compact {
-        grid-template-columns:repeat(4,minmax(0,1fr));
-      }
-
-      .admin-stats-compact .admin-stat-box {
-        padding:14px 16px;
-        border-radius:18px;
-      }
-
-      .admin-stats-compact .admin-stat-box strong {
-        font-size:26px;
-      }
-
-      .admin-stats-compact .admin-stat-box small {
-        display:none;
-      }
-
-      .admin-strip-actions {
-        display:grid;
-        grid-template-columns:minmax(0,1fr) auto auto;
-        gap:10px;
-        align-items:end;
-      }
-
-      .admin-pin-inline {
-        display:grid;
-        gap:6px;
-      }
-
-      .admin-pin-inline span {
-        color:#6f6257;
-        font-size:13px;
-        font-weight:700;
-      }
-
-      .admin-pin-inline input {
-        height:48px;
-      }
-
-      .admin-nav-card.admin-nav-compact {
-        position:static;
-        padding:10px;
-      }
-
-      .admin-nav-card.admin-nav-compact .admin-tab-row {
-        gap:8px;
-      }
-
-      .admin-panel-header {
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-        align-items:flex-start;
-        margin-bottom:16px;
-      }
-
-      .admin-panel-header h3 {
-        margin:0 0 6px;
-        font-size:24px;
-      }
-
-      .admin-panel-header p {
-        margin:0;
-        color:#6f6257;
-      }
-
-      .admin-workspace-card.compact {
-        padding:18px;
-      }
-
-      .admin-workspace-card.compact .admin-workspace-top {
-        margin-bottom:14px;
-      }
-
-      .admin-workspace-card.compact .admin-workspace-top h3 {
-        font-size:22px;
-      }
-
-      .admin-workspace-card.compact .reader {
-        min-height:340px;
-      }
-
-      .admin-control-stack.compact {
-        gap:12px;
-      }
-
-      .admin-note-card.compact {
-        gap:4px;
-        padding:14px 16px;
-      }
-
-      .admin-code-grid {
-        display:grid;
-        grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-        gap:18px;
-      }
-
-      .admin-code-box {
-        display:grid;
-        gap:12px;
-      }
-
-      .admin-inline-status {
-        display:grid;
-        gap:10px;
-      }
-
-      .admin-inline-status .inline-form {
-        margin-top:0;
-      }
-
-      .admin-list-compact .event-row {
-        padding:12px 0;
-      }
-
-      @media (max-width: 1100px) {
+      @media (max-width: 1040px) {
         .admin-top-grid,
         .admin-grid-two,
-        .admin-grid-three,
-        .admin-workspace-grid,
-        .admin-form-grid,
-        .admin-code-grid {
+        .admin-grid-three {
           grid-template-columns:1fr;
         }
 
         .admin-stats-inline {
-          grid-template-columns:repeat(2,minmax(0,1fr));
-        }
-
-        .admin-hero-head,
-        .admin-nav-head {
-          flex-direction:column;
-          align-items:flex-start;
-        }
-
-        .admin-current-config {
           grid-template-columns:1fr;
-        }
-
-        .admin-current-config .btn {
-          width:100%;
         }
       }
 
       @media (max-width: 760px) {
-        .admin-nav-card {
-          position:static;
-        }
-
-        .admin-panel-header,
-        .admin-strip-actions {
-          grid-template-columns:1fr;
-        }
-
         .admin-tab-row {
           display:grid;
-          grid-auto-flow:column;
-          grid-auto-columns:minmax(164px,78vw);
-          overflow-x:auto;
-          padding-bottom:4px;
+          grid-template-columns:repeat(2,minmax(0,1fr));
           gap:8px;
-          scrollbar-width:thin;
         }
 
         .admin-tab-btn {
           width:100%;
-          min-height:44px;
-          padding-inline:14px;
-          white-space:nowrap;
+          min-height:42px;
+          padding-inline:12px;
         }
 
         .submission-row,
         .event-row,
         .action-row,
         .voucher-select-top,
-        .admin-inline-top,
-        .admin-pin-status-row,
-        .admin-selection-head,
-        .admin-workspace-top {
+        .admin-inline-top {
           flex-direction:column;
-          align-items:flex-start;
         }
 
         .admin-surface,
-        .admin-hero-card,
-        .admin-pin-card {
-          padding:16px;
-          border-radius:20px;
-        }
-
-        .admin-hero-head h2 {
-          font-size:clamp(30px,9vw,38px);
-          max-width:none;
-        }
-
-        .admin-stats-inline {
-          grid-template-columns:1fr;
-        }
-
-        .admin-stats-inline.admin-stats-compact {
-          grid-template-columns:repeat(2,minmax(0,1fr));
-        }
-
-        .reader {
-          min-height:320px;
-        }
-      }
-
-      @media (max-width: 560px) {
-        .admin-pin-card input {
-          font-size:20px;
-        }
-
-        .admin-tab-row {
-          grid-auto-columns:minmax(140px,82vw);
-        }
-
-        .admin-step {
-          padding:10px 12px;
+        .admin-hero-card {
+          padding:14px;
+          border-radius:18px;
         }
       }
     </style>
@@ -4495,60 +3704,58 @@ app.get("/admin", adminRequired, async (req, res) => {
     ${renderFlash(req)}
 
     <div class="admin-shell">
-      <section class="card admin-surface admin-top-strip">
-        <div class="admin-strip-main">
-          <div class="admin-strip-copy">
-            <span class="eyebrow">Back Office</span>
-            <h2>Admin</h2>
-            <p>${escapeHtml(scannerConfigSummary(scannerConfig))}</p>
+      <section class="admin-top-grid">
+        <div class="card admin-hero-card">
+          <div class="admin-hero-copy">
+            <div class="admin-stats-inline">
+              <div class="admin-stat-box">
+                <strong>${userCount}</strong>
+                <span>Kunden</span>
+              </div>
+              <div class="admin-stat-box">
+                <strong>${pendingCount}</strong>
+                <span>Prüfungen</span>
+              </div>
+              <div class="admin-stat-box">
+                <strong>${openVoucherCount}</strong>
+                <span>Voucher offen</span>
+              </div>
+            </div>
           </div>
-          <div class="admin-stats-inline admin-stats-compact">
-            ${adminMetricCard(userCount, "Kunden")}
-            ${adminMetricCard(pendingCount, "Prüfungen")}
-            ${adminMetricCard(openVoucherCount, "Voucher")}
-            ${adminMetricCard(openCodeCount, "Codes offen")}
-          </div>
-        </div>
-
-        <div class="admin-strip-actions">
-          <label class="admin-pin-inline">
-            <span>Staff PIN</span>
-            <input id="adminSharedPin" type="password" placeholder="PIN" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" />
-          </label>
-          <button class="btn btn-ghost btn-small" id="togglePinVisibility" type="button">anzeigen</button>
-          <span class="chip chip-danger" id="pinReadyChip">PIN fehlt</span>
         </div>
       </section>
 
-      <section class="admin-nav-card admin-nav-compact">
+      <section class="admin-nav-card">
         <div class="admin-tab-row" id="adminSectionSwitch">
-          <button class="btn btn-primary adminTabBtn admin-tab-btn" type="button" data-target="panel-checkin" aria-pressed="true">Check-in</button>
-          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-custom" aria-pressed="false">Scanner</button>
-          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-voucher" aria-pressed="false">Voucher</button>
-          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-managing" aria-pressed="false">Hub</button>
+          <button class="btn btn-primary adminTabBtn admin-tab-btn" type="button" data-target="panel-checkin">Check-in</button>
+          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-custom">Scanner</button>
+          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-voucher">Voucher</button>
+          <button class="btn btn-ghost adminTabBtn admin-tab-btn" type="button" data-target="panel-managing">Hub</button>
         </div>
       </section>
 
       <section class="admin-panel" id="panel-checkin">
-        <section class="card admin-surface admin-workspace-card compact">
-          <div class="admin-panel-header">
-            <div>
+        <section class="admin-grid-two">
+          <div class="card admin-surface">
+            <div class="section-head">
               <h3>Check-in</h3>
-              <p>Fester Scan für den Tages-Check-in.</p>
+              <p>Fixe Buchung.</p>
             </div>
-            <span class="chip">${escapeHtml(scannerConfigSummary(DAILY_CHECKIN_CONFIG))}</span>
+
+            <div class="button-row">
+              <button class="btn btn-primary" id="startCheckinScan">Scanner starten</button>
+              <button class="btn btn-secondary" id="stopCheckinScan" disabled>Stoppen</button>
+            </div>
+
+            <div id="checkinScanStatus" class="admin-status-box">Bereit.</div>
+            <div class="admin-mini-note">${escapeHtml(scannerConfigSummary(DAILY_CHECKIN_CONFIG))}</div>
           </div>
 
-          <div class="admin-workspace-grid">
-            <div class="admin-control-stack compact">
-              <div class="button-row">
-                <button class="btn btn-primary" id="startCheckinScan">Scanner starten</button>
-                <button class="btn btn-secondary" id="stopCheckinScan" disabled>Stoppen</button>
-              </div>
-
-              <div id="checkinScanStatus" class="admin-status-box">Bereit.</div>
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Kamera</h3>
+              <p>QR-Code scannen.</p>
             </div>
-
             <div id="readerCheckin" class="reader"></div>
           </div>
         </section>
@@ -4556,210 +3763,153 @@ app.get("/admin", adminRequired, async (req, res) => {
         <section class="card admin-surface admin-list-card">
           <div class="section-head">
             <h3>Letzte Check-ins</h3>
-            <p>Neue Buchungen erscheinen sofort, damit das Team nicht rätseln muss.</p>
+            <p>Neueste Buchungen.</p>
           </div>
-          <div id="checkinLog" class="event-list">
-            <div class="admin-empty admin-log-empty">
-              <strong>Noch keine Check-ins in dieser Sitzung.</strong>
-              <span>Neue Scans werden direkt hier protokolliert.</span>
-            </div>
-          </div>
+          <div id="checkinLog" class="event-list"></div>
         </section>
       </section>
 
       <section class="admin-panel" id="panel-custom" hidden>
         <section class="admin-grid-two">
           <form class="card admin-surface admin-compact-form" method="post" action="/admin/scanner-config">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Scanner Setup</h3>
-                <p>Aktive Scan-Aktion für den laufenden Betrieb.</p>
-              </div>
-              ${scannerModeChip}
+            <div class="section-head">
+              <h3>Scanner Setup</h3>
+              <p>Werte für die Buchung.</p>
             </div>
 
-            <div class="admin-form-grid">
-              <label class="admin-field-span">Label<input name="label" required value="${escapeHtml(scannerConfig.label)}" /></label>
-              <label>Punkte<input name="addPoints" type="number" value="${Number(scannerConfig.addPoints || 0)}" /></label>
-              <label>Pizzen<input name="addPizzas" type="number" value="${Number(scannerConfig.addPizzas || 0)}" /></label>
-            </div>
-
-            <div class="admin-toggle-grid">
-              <label class="check-row"><input type="checkbox" name="oncePerDay" ${scannerConfig.oncePerDay ? "checked" : ""} /><span>Nur 1x pro Tag</span></label>
-              <label class="check-row"><input type="checkbox" name="active" ${scannerConfig.active ? "checked" : ""} /><span>Scanner live schalten</span></label>
-            </div>
+            <label>Label<input name="label" required value="${escapeHtml(scannerConfig.label)}" /></label>
+            <label>Punkte<input name="addPoints" type="number" value="${Number(scannerConfig.addPoints || 0)}" /></label>
+            <label>Pizzen<input name="addPizzas" type="number" value="${Number(scannerConfig.addPizzas || 0)}" /></label>
+            <label class="check-row"><input type="checkbox" name="oncePerDay" ${scannerConfig.oncePerDay ? "checked" : ""} /> Nur 1x pro Tag</label>
+            <label class="check-row"><input type="checkbox" name="active" ${scannerConfig.active ? "checked" : ""} /> Aktiv</label>
             <button class="btn btn-primary" type="submit">Speichern</button>
           </form>
 
-          <section class="card admin-surface admin-workspace-card compact scanner-summary-card">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Live-Scanner</h3>
-                <p>${escapeHtml(scannerConfig.label || "Scanner Aktion")}</p>
-              </div>
-              <button class="btn btn-secondary btn-small adminJumpBtn" type="button" data-target="panel-managing">Zum Hub</button>
+          <div class="card admin-surface scanner-summary-card">
+            <div class="section-head">
+              <h3>Scanner</h3>
+              <p>Direkt nutzen.</p>
             </div>
 
-            <div class="admin-workspace-grid">
-              <div class="admin-control-stack compact">
-                <div class="admin-note-card compact">
-                  <strong>${escapeHtml(scannerConfigSummary(scannerConfig))}</strong>
-                  <small>${scannerConfig.active ? "Scanner bereit" : "Scanner pausiert"}</small>
-                </div>
-                <div class="button-row">
-                  <button class="btn btn-primary" type="button" id="startCustomScan">Scanner starten</button>
-                  <button class="btn btn-secondary" type="button" id="stopCustomScan" disabled>Stoppen</button>
-                </div>
+            <div class="admin-mini-note">${escapeHtml(scannerConfigSummary(scannerConfig))}</div>
 
-                <div id="customScanStatus" class="admin-status-box">Bereit.</div>
-              </div>
-
-              <div id="readerCustom" class="reader"></div>
+            <div class="button-row">
+              <button class="btn btn-primary" type="button" id="startCustomScan">Scanner starten</button>
+              <button class="btn btn-secondary" type="button" id="stopCustomScan" disabled>Stoppen</button>
             </div>
-          </section>
+
+            <div id="customScanStatus" class="admin-status-box">Bereit.</div>
+            <div id="readerCustom" class="reader"></div>
+          </div>
         </section>
 
-        <section class="admin-code-grid">
-          <section class="card admin-surface admin-code-box">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Einmalcode</h3>
-                <p>Code erstellen und direkt daneben sehen.</p>
-              </div>
-              <span class="chip">${openCodeCount} offen</span>
+        <section class="admin-grid-two">
+          <form class="card admin-surface admin-compact-form" method="post" action="/admin/create-code">
+            <div class="section-head">
+              <h3>Einmalcode</h3>
+              <p>Code für eine spätere Gutschrift anlegen.</p>
             </div>
 
-            <form class="admin-compact-form" method="post" action="/admin/create-code">
-              <div class="admin-form-grid">
-                <label class="admin-field-span">Label<input name="label" required placeholder="2 bestellte Pizzen / +25 Punkte" /></label>
-                <label>Punkte<input name="addPoints" type="number" value="0" /></label>
-                <label>Pizzen<input name="addPizzas" type="number" value="0" /></label>
-              </div>
-              <button class="btn btn-secondary" type="submit">Code erzeugen</button>
-            </form>
+            <label>Label<input name="label" required placeholder="2 bestellte Pizzen / +25 Punkte" /></label>
+            <label>Punkte<input name="addPoints" type="number" value="0" /></label>
+            <label>Pizzen<input name="addPizzas" type="number" value="0" /></label>
+            <button class="btn btn-secondary" type="submit">Code erzeugen</button>
+          </form>
 
-            <div class="admin-list-card admin-list-compact">
-              ${collapsibleAdminBlock({
-                id: "recent-codes-block",
-                content: recentCodesHtml,
-                forceCollapse: true
-              })}
+          <div class="card admin-surface admin-list-card">
+            <div class="section-head">
+              <h3>Letzte Scans</h3>
+              <p>Neueste Scanner-Buchungen.</p>
             </div>
-          </section>
+            <div id="customScanLog" class="event-list"></div>
+          </div>
+        </section>
 
-          <section class="card admin-surface admin-inline-status">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Code einlösen</h3>
-                <p>Fallback ohne Scan.</p>
-              </div>
+        <section class="admin-grid-two">
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Code manuell einlösen</h3>
+              <p>Fallback wenn der Scanner ausfällt.</p>
             </div>
 
             <div id="adminCodeStatus" class="admin-status-box">Bereit.</div>
-            <div class="inline-form">
-              <input id="adminCodeValue" placeholder="z. B. PB-AB12CD" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+            <div class="inline-form" style="margin-top:12px">
+              <input id="adminCodeValue" placeholder="z. B. PB-AB12CD" autocomplete="off" />
               <button class="btn btn-primary" type="button" id="applyAdminCodeBtn">Einlösen</button>
             </div>
-          </section>
+          </div>
 
-          <div class="card admin-surface admin-list-card">
-            <div class="admin-panel-header">
-              <div>
-              <h3>Letzte Scanner-Buchungen</h3>
-                <p>Direkt nach dem Scan sichtbar.</p>
-              </div>
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Hinweis</h3>
+              <p>Kein Scan nötig.</p>
             </div>
-            <div id="customScanLog" class="event-list">
-              <div class="admin-empty admin-log-empty">
-                <strong>Noch keine Scanner-Buchung in dieser Sitzung.</strong>
-                <span>Neue Live-Scans werden direkt hier protokolliert.</span>
-              </div>
-            </div>
+            <div class="admin-mini-note">Der Code reicht aus.</div>
           </div>
         </section>
       </section>
 
       <section class="admin-panel" id="panel-voucher" hidden>
-        <section class="card admin-surface admin-workspace-card compact">
-          <div class="admin-panel-header">
-            <div>
-              <h3>Voucher einlösen</h3>
-              <p>Kunde scannen und offenen Voucher direkt auswählen.</p>
+        <section class="admin-grid-two">
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Voucher Scan</h3>
+              <p>Kunde scannen und Voucher auswählen.</p>
             </div>
-            <span class="chip">${openVoucherCount} offen</span>
+
+            <div class="button-row">
+              <button class="btn btn-primary" id="startVoucherScan">Scanner starten</button>
+              <button class="btn btn-secondary" id="stopVoucherScan" disabled>Stoppen</button>
+            </div>
+            <div id="voucherScanStatus" class="admin-status-box">Bereit.</div>
           </div>
 
-          <div class="admin-workspace-grid">
-            <div class="admin-control-stack compact">
-              <div class="button-row">
-                <button class="btn btn-primary" id="startVoucherScan">Scanner starten</button>
-                <button class="btn btn-secondary" id="stopVoucherScan" disabled>Stoppen</button>
-              </div>
-
-              <div id="voucherScanStatus" class="admin-status-box">Bereit.</div>
+          <div class="card admin-surface">
+            <div class="section-head">
+              <h3>Kamera</h3>
+              <p>QR-Code scannen.</p>
             </div>
-
             <div id="readerVoucher" class="reader"></div>
           </div>
         </section>
 
-        <section class="admin-grid-two">
-          <section class="card admin-surface">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Offene Voucher</h3>
-                <p>Auswahl nach dem Scan.</p>
-              </div>
-            </div>
-            <div id="voucherSelection">
-              ${adminEmptyState("Noch kein Kunde gescannt.", "Scan starten, dann werden die offenen Voucher hier gebündelt angezeigt.")}
-            </div>
-          </section>
+        <section class="card admin-surface">
+          <div class="section-head">
+            <h3>Offene Voucher</h3>
+            <p>Nach dem Scan sichtbar.</p>
+          </div>
+          <div id="voucherSelection"><p class="muted-text">Noch kein Kunde gescannt.</p></div>
+        </section>
 
-          <section class="card admin-surface admin-list-card">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Einlösungen</h3>
-                <p>Zuletzt verbucht.</p>
-              </div>
-            </div>
-            <div id="voucherLog" class="event-list">
-              <div class="admin-empty admin-log-empty">
-                <strong>Noch keine Voucher-Einlösung in dieser Sitzung.</strong>
-                <span>Sobald eingelöst wird, tauchen die Einträge direkt hier auf.</span>
-              </div>
-            </div>
-          </section>
+        <section class="card admin-surface admin-list-card">
+          <div class="section-head">
+            <h3>Einlösungen</h3>
+            <p>Zuletzt verbuchte Voucher.</p>
+          </div>
+          <div id="voucherLog" class="event-list"></div>
         </section>
       </section>
 
       <section class="admin-panel" id="panel-managing" hidden>
         <section class="admin-grid-two">
           <form class="card admin-surface admin-compact-form" method="post" action="/admin/custom-tasks">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Neue Aktion</h3>
-                <p>Kurze Aktion für Kunden anlegen.</p>
-              </div>
+            <div class="section-head">
+              <h3>Neue Aktion</h3>
+              <p>Kompakt anlegen.</p>
             </div>
 
-            <div class="admin-form-grid">
-              <label>Titel<input name="title" required placeholder="Like + Kommentar" /></label>
-              <label>Punkte<input name="points" type="number" value="20" required /></label>
-              <label class="admin-field-span">Beschreibung<input name="description" required placeholder="Kurze Erklärung" /></label>
-              <label class="admin-field-span">Ziel-Link<input name="targetUrl" placeholder="https://instagram.com/..." /></label>
-            </div>
-
-            <label class="check-row"><input type="checkbox" name="active" checked /><span>Sofort aktiv schalten</span></label>
+            <label>Titel<input name="title" required placeholder="Like + Kommentar" /></label>
+            <label>Beschreibung<input name="description" required placeholder="Kurze Erklärung" /></label>
+            <label>Ziel-Link<input name="targetUrl" placeholder="https://instagram.com/..." /></label>
+            <label>Punkte<input name="points" type="number" value="20" required /></label>
+            <label class="check-row"><input type="checkbox" name="active" checked /> Aktiv</label>
             <button class="btn btn-primary" type="submit">Aktion erstellen</button>
           </form>
 
           <div class="card admin-surface admin-list-card">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Aktionen</h3>
-                <p>Aktive Kundenaktionen.</p>
-              </div>
+            <div class="section-head">
+              <h3>Aktionen</h3>
+              <p>Bestehende Aktionen.</p>
             </div>
 
             ${
@@ -4779,33 +3929,40 @@ app.get("/admin", adminRequired, async (req, res) => {
                       </div>
                     </div>
                   `).join("")}</div>`
-                : adminEmptyState("Noch keine Aktionen erstellt.", "Sobald du eine neue Aktion anlegst, erscheint sie hier.")
+                : `<div class="admin-empty">Noch keine Aktionen erstellt.</div>`
             }
           </div>
         </section>
 
+        <section class="card admin-surface admin-list-card">
+          <div class="section-head">
+            <h3>Offene Prüfungen</h3>
+            <p>Einreichen, prüfen, freigeben.</p>
+          </div>
+
+          ${collapsibleAdminBlock({
+            id: "pending-submissions-block",
+            content: pendingSubmissionsHtml,
+            count: pendingSubmissions.length,
+            threshold: 5
+          })}
+        </section>
+
         <section class="admin-grid-two">
           <div class="card admin-surface admin-list-card">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Offene Prüfungen</h3>
-                <p>Einreichungen prüfen.</p>
-              </div>
+            <div class="section-head">
+              <h3>Einmalcodes</h3>
             </div>
             ${collapsibleAdminBlock({
-              id: "pending-submissions-block",
-              content: pendingSubmissionsHtml,
-              count: pendingSubmissions.length,
-              threshold: 5
+              id: "recent-codes-block",
+              content: recentCodesHtml,
+              forceCollapse: true
             })}
           </div>
 
-          <div class="card admin-surface admin-list-card">
-            <div class="admin-panel-header">
-              <div>
-                <h3>Kunden</h3>
-                <p>Konten, Punkte und Voucher.</p>
-              </div>
+          <div class="card admin-surface admin-table-card">
+            <div class="section-head">
+              <h3>Kunden</h3>
             </div>
             ${collapsibleAdminBlock({
               id: "users-table-block",
@@ -4819,19 +3976,12 @@ app.get("/admin", adminRequired, async (req, res) => {
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
-      const pinInput = document.getElementById("adminSharedPin");
-      const pinReadyChip = document.getElementById("pinReadyChip");
-      const togglePinVisibilityBtn = document.getElementById("togglePinVisibility");
       const panelButtons = Array.from(document.querySelectorAll(".adminTabBtn"));
-      const jumpButtons = Array.from(document.querySelectorAll(".adminJumpBtn"));
       const panels = Array.from(document.querySelectorAll(".admin-panel"));
       const scannerState = {};
       let selectedVouchers = [];
       let selectedVoucherUser = "";
 
-      function getPin() {
-        return pinInput?.value.trim() || "";
-      }
 
       function escapeHtmlClient(value) {
         return String(value).replace(/[&<>"']/g, function (ch) {
@@ -4845,15 +3995,6 @@ app.get("/admin", adminRequired, async (req, res) => {
         });
       }
 
-      function updatePinState() {
-        const hasPin = !!getPin();
-        if (pinReadyChip) {
-          pinReadyChip.textContent = hasPin ? "PIN bereit" : "PIN fehlt";
-          pinReadyChip.classList.toggle("chip-success", hasPin);
-          pinReadyChip.classList.toggle("chip-danger", !hasPin);
-        }
-      }
-
       function activatePanel(id) {
         panels.forEach(panel => {
           panel.hidden = panel.id !== id;
@@ -4863,12 +4004,7 @@ app.get("/admin", adminRequired, async (req, res) => {
           const active = btn.dataset.target === id;
           btn.classList.toggle("btn-primary", active);
           btn.classList.toggle("btn-ghost", !active);
-          btn.setAttribute("aria-pressed", active ? "true" : "false");
         });
-
-        try {
-          window.localStorage.setItem("adminActivePanel", id);
-        } catch (e) {}
 
         window.location.hash = id;
       }
@@ -4877,30 +4013,9 @@ app.get("/admin", adminRequired, async (req, res) => {
         btn.addEventListener("click", () => activatePanel(btn.dataset.target));
       });
 
-      jumpButtons.forEach(btn => {
-        btn.addEventListener("click", () => activatePanel(btn.dataset.target));
-      });
-
-      pinInput?.addEventListener("input", updatePinState);
-      updatePinState();
-
-      togglePinVisibilityBtn?.addEventListener("click", () => {
-        const shouldShow = pinInput?.type === "password";
-        if (!pinInput) return;
-        pinInput.type = shouldShow ? "text" : "password";
-        togglePinVisibilityBtn.textContent = shouldShow ? "verbergen" : "anzeigen";
-      });
-
       const initialHash = window.location.hash?.replace(/^#/, "");
-      let savedPanel = "";
-      try {
-        savedPanel = window.localStorage.getItem("adminActivePanel") || "";
-      } catch (e) {}
-
       if (initialHash && document.getElementById(initialHash)) {
         activatePanel(initialHash);
-      } else if (savedPanel && document.getElementById(savedPanel)) {
-        activatePanel(savedPanel);
       } else {
         activatePanel("panel-checkin");
       }
@@ -4908,7 +4023,6 @@ app.get("/admin", adminRequired, async (req, res) => {
       function addLog(logId, html) {
         const logEl = document.getElementById(logId);
         if (!logEl) return;
-        logEl.querySelector(".admin-log-empty")?.remove();
         logEl.insertAdjacentHTML("afterbegin", "<div class='event-row'>" + html + "</div>");
       }
 
@@ -4947,11 +4061,6 @@ app.get("/admin", adminRequired, async (req, res) => {
             return;
           }
 
-          const pin = getPin();
-          if (!pin) {
-            statusEl.textContent = "Bitte zuerst die Staff PIN eingeben.";
-            return;
-          }
 
           const scanner = new Html5Qrcode(readerId);
           scannerState[name] = { instance: scanner, running: true };
@@ -4966,7 +4075,6 @@ app.get("/admin", adminRequired, async (req, res) => {
               try {
                 const form = new URLSearchParams();
                 form.set("payload", decodedText);
-                form.set("pin", pin);
 
                 const res = await fetch(endpoint, {
                   method: "POST",
@@ -5045,20 +4153,12 @@ app.get("/admin", adminRequired, async (req, res) => {
         const statusEl = document.getElementById("adminCodeStatus");
         const codeInput = document.getElementById("adminCodeValue");
         const code = String(codeInput?.value || "").trim().toUpperCase().replace(/\s+/g, "");
-        const pin = getPin();
-
-        if (!pin) {
-          statusEl.textContent = "Bitte zuerst die Staff PIN eingeben.";
-          return;
-        }
-
         if (!code) {
           statusEl.textContent = "Bitte einen Code eingeben.";
           return;
         }
 
         const form = new URLSearchParams();
-        form.set("pin", pin);
         form.set("code", code);
 
         const res = await fetch("/admin/redeem-voucher-code", {
@@ -5083,22 +4183,11 @@ app.get("/admin", adminRequired, async (req, res) => {
         if (!selectionEl) return;
 
         if (!vouchers.length) {
-          selectionEl.innerHTML =
-            "<div class='admin-empty'>" +
-              "<strong>" + escapeHtmlClient(userName || "Dieser Kunde") + "</strong>" +
-              "<span>Aktuell ist kein offener Voucher vorhanden.</span>" +
-            "</div>";
+          selectionEl.innerHTML = "<p class='muted-text'>Für <strong>" + escapeHtmlClient(userName) + "</strong> ist kein offener Voucher vorhanden.</p>";
           return;
         }
 
         selectionEl.innerHTML =
-          "<div class='admin-selection-head'>" +
-            "<div>" +
-              "<strong>" + escapeHtmlClient(userName) + "</strong>" +
-              "<small>" + vouchers.length + " offener Voucher zur Auswahl</small>" +
-            "</div>" +
-            "<span class='chip'>" + vouchers.length + " offen</span>" +
-          "</div>" +
           "<div class='voucher-select-grid'>" +
           vouchers.map(v => {
             return (
@@ -5119,17 +4208,11 @@ app.get("/admin", adminRequired, async (req, res) => {
 
         document.querySelectorAll(".redeemVoucherBtn").forEach(btn => {
           btn.addEventListener("click", async () => {
-            const pin = getPin();
             const statusEl = document.getElementById("voucherScanStatus");
-            if (!pin) {
-              statusEl.textContent = "Bitte zuerst die Staff PIN eingeben.";
-              return;
-            }
 
             const form = new URLSearchParams();
             form.set("voucherId", btn.getAttribute("data-voucher-id"));
-            form.set("pin", pin);
-
+    
             const res = await fetch("/admin/redeem-voucher", {
               method: "POST",
               headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -5162,11 +4245,6 @@ app.get("/admin", adminRequired, async (req, res) => {
             return;
           }
 
-          const pin = getPin();
-          if (!pin) {
-            statusEl.textContent = "Bitte zuerst die Staff PIN eingeben.";
-            return;
-          }
 
           const scanner = new Html5Qrcode("readerVoucher");
           scannerState.voucher = { instance: scanner, running: true };
@@ -5181,7 +4259,6 @@ app.get("/admin", adminRequired, async (req, res) => {
               try {
                 const form = new URLSearchParams();
                 form.set("payload", decodedText);
-                form.set("pin", pin);
 
                 const res = await fetch("/admin/redeem-scan", {
                   method: "POST",
@@ -5192,11 +4269,7 @@ app.get("/admin", adminRequired, async (req, res) => {
                 const data = await res.json();
                 if (!res.ok || !data.ok) {
                   statusEl.textContent = data.error || "Fehler";
-                  document.getElementById("voucherSelection").innerHTML =
-                    "<div class='admin-empty'>" +
-                      "<strong>Scan nicht möglich.</strong>" +
-                      "<span>" + escapeHtmlClient(data.error || "Fehler") + "</span>" +
-                    "</div>";
+                  document.getElementById("voucherSelection").innerHTML = "<p class='muted-text'>" + escapeHtmlClient(data.error || "Fehler") + "</p>";
                   await stopScanner("voucher", "startVoucherScan", "stopVoucherScan");
                   return;
                 }
