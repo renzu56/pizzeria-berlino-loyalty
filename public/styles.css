@@ -1324,24 +1324,3 @@ select { background: rgba(255, 255, 255, 0.94); }
   .account-dashboard-page .reward-card .btn { width: 100%; min-height: 38px; font-size: 12px; }
   .admin-stat-customers { display: none !important; }
 }
-
-
-/* Next account/admin refinements */
-.hero-next-copy { margin: 0; font-weight: 850; letter-spacing: -0.04em; }
-.reward-card p,
-.reward-status { display: none !important; }
-.reward-card::after { content: none !important; display: none !important; }
-.account-main-grid { display: grid; gap: 18px; }
-.scanner-camera-card.is-hidden { display: none !important; }
-.admin-status-box.is-success { background: #eef8f1 !important; border-color: rgba(44,122,91,.24) !important; color: #255f48 !important; font-weight: 800; }
-.admin-status-box.is-error { background: #fff2f2 !important; border-color: rgba(181,69,69,.24) !important; color: #8f3535 !important; font-weight: 800; }
-#users-table-block summary { font-size: 12px; padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(191,90,52,.12); background: #fff7f1; }
-@media (max-width: 760px) {
-  .account-dashboard-page .progress-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  .account-dashboard-page .account-main-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "rewards rewards" "actions actions" "vouchers history"; }
-  .rewards-panel-card { grid-area: rewards; }
-  .actions-panel-card { grid-area: actions; }
-  .vouchers-panel-card { grid-area: vouchers; }
-  .history-panel-card { grid-area: history; }
-  .admin-stat-customers { display: block !important; }
-}
