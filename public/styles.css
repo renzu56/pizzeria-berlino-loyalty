@@ -1324,3 +1324,101 @@ select { background: rgba(255, 255, 255, 0.94); }
   .account-dashboard-page .reward-card .btn { width: 100%; min-height: 38px; font-size: 12px; }
   .admin-stat-customers { display: none !important; }
 }
+
+
+/* Next account/admin refinements */
+.hero-next-copy { margin: 0; font-weight: 850; letter-spacing: -0.04em; }
+.reward-card p,
+.reward-status { display: none !important; }
+.reward-card::after { content: none !important; display: none !important; }
+.account-main-grid { display: grid; gap: 18px; }
+.scanner-camera-card.is-hidden { display: none !important; }
+.admin-status-box.is-success { background: #eef8f1 !important; border-color: rgba(44,122,91,.24) !important; color: #255f48 !important; font-weight: 800; }
+.admin-status-box.is-error { background: #fff2f2 !important; border-color: rgba(181,69,69,.24) !important; color: #8f3535 !important; font-weight: 800; }
+#users-table-block summary { font-size: 12px; padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(191,90,52,.12); background: #fff7f1; }
+@media (max-width: 760px) {
+  .account-dashboard-page .progress-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .account-dashboard-page .account-main-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "rewards rewards" "actions actions" "vouchers history"; }
+  .rewards-panel-card { grid-area: rewards; }
+  .actions-panel-card { grid-area: actions; }
+  .vouchers-panel-card { grid-area: vouchers; }
+  .history-panel-card { grid-area: history; }
+  .admin-stat-customers { display: block !important; }
+}
+
+/* Final portrait logo and emoji/icon alignment fixes */
+.brand-icon,
+.brand.brand-expanded .brand-icon {
+  width: 104px !important;
+  height: 122px !important;
+  padding: 3px !important;
+  border-radius: 22px !important;
+  background: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+}
+
+.brand-logo-img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  display: block !important;
+  border-radius: 16px !important;
+}
+
+.reward-icon,
+.reward-card-icon,
+.reward-emoji,
+.reward-card-emoji {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  font-size: 20px !important;
+  vertical-align: middle !important;
+  transform: none !important;
+}
+
+.reward-card-top {
+  align-items: center !important;
+}
+
+.reward-card-top > strong,
+.reward-title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  line-height: 1.15 !important;
+}
+
+@media (max-width: 760px) {
+  .brand-icon,
+  .brand.brand-expanded .brand-icon {
+    width: 82px !important;
+    height: 96px !important;
+    padding: 3px !important;
+    border-radius: 18px !important;
+  }
+
+  .reward-icon,
+  .reward-card-icon,
+  .reward-emoji,
+  .reward-card-emoji {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    font-size: 18px !important;
+  }
+}
+

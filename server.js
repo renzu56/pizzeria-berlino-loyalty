@@ -688,8 +688,10 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       .brand-logo-img {
         width:100%;
         height:100%;
+        max-width:100%;
+        max-height:100%;
         object-fit:contain;
-        object-position:center;
+        object-position:center center;
         display:block;
         border-radius:16px;
       }
@@ -1081,10 +1083,10 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
         }
 
         .brand.brand-expanded .brand-icon {
-          width:86px;
-          height:68px;
+          width:82px;
+          height:96px;
           border-radius:18px;
-          padding:5px;
+          padding:3px;
         }
 
         .brand.brand-expanded .brand-title {
@@ -1996,9 +1998,9 @@ app.get("/account", authRequired, async (req, res) => {
       ? `${rewardProgress.nextReward.title} ist bereit.`
       : `Nächster Vorteil: ${rewardProgress.nextReward.title} in ${rewardProgress.remaining} Punkten.`;
 
-  const accountHeroCopy = vouchers.length
-    ? `${vouchers.length} offener Gutschein wartet auf dich.`
-    : `Scanne deine Karte im Laden und behalte deine Vorteile im Blick.`;
+  const accountHeroCopy = rewardProgress.remaining === 0
+    ? `${rewardProgress.nextReward.title} ist verfügbar.`
+    : `Noch ${rewardProgress.remaining} Punkte bis ${rewardProgress.nextReward.title}.`;
 
   const rewardCardsHtml = rewards.map(reward => {
     return `
@@ -2011,18 +2013,12 @@ app.get("/account", authRequired, async (req, res) => {
           <span class="reward-cost">ab ${reward.cost} Pkt</span>
         </div>
 
-        <p>${escapeHtml(reward.description)}</p>
-
         ${progressBar(
           rewardCardProgress(user.points, reward.cost),
           reward.canRedeem
             ? "linear-gradient(90deg,#2c7a5b 0%,#6ac391 100%)"
             : "linear-gradient(90deg,#bf5a34 0%,#e28a56 100%)"
         )}
-
-        <div class="reward-status">
-          ${reward.canRedeem ? "Bereit zur Aktivierung" : "Noch gesperrt"}
-        </div>
 
         <form method="post" action="/account/redeem-reward">
           <input type="hidden" name="rewardId" value="${reward.id}" />
@@ -2344,6 +2340,36 @@ app.get("/account", authRequired, async (req, res) => {
         font-size:14px;
       }
 
+
+      .reward-icon,
+      .reward-card-icon,
+      .reward-emoji,
+      .reward-card-emoji {
+        width:34px;
+        height:34px;
+        min-width:34px;
+        min-height:34px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        line-height:1;
+        font-size:20px;
+        vertical-align:middle;
+        transform:none;
+      }
+
+      .reward-card-top {
+        align-items:center;
+      }
+
+      .reward-card-top > strong,
+      .reward-title {
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        line-height:1.15;
+      }
+
       .reward-card {
         background:#fffaf6;
         border:1px solid rgba(191,90,52,.12);
@@ -2562,18 +2588,45 @@ app.get("/account", authRequired, async (req, res) => {
       .history-disclosure summary span { display:inline-flex; align-items:center; justify-content:center; min-width:28px; min-height:28px; border-radius:999px; background:#fff7f1; color:#9b4d27; font-size:12px; }
       .history-list { padding:0 16px 14px; }
 
+      .hero-next-copy { margin:0; font-size:clamp(22px,3.2vw,34px); line-height:1.05; letter-spacing:-.04em; color:#2a2019; font-weight:850; max-width:18ch; }
+      .progress-mini-grid .progress-card { padding:16px; }
+      .points-progress-card .section-head p { display:none; }
+      .points-progress-card .progress-card-inner { grid-template-columns:1fr; justify-items:center; gap:0; }
+      .points-progress-card .progress-center-copy strong { font-size:30px; }
+      .pizza-progress-card { padding:16px; }
+      .pizza-progress-card .section-head { margin-bottom:8px; }
+      .pizza-progress-card .pizza-visual { max-width:180px; }
+      .pizza-progress-card .pizza-center-copy strong { font-size:28px; }
+
+      .account-main-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; grid-template-areas:"rewards vouchers" "actions history"; }
+      .rewards-panel-card { grid-area:rewards; }
+      .actions-panel-card { grid-area:actions; }
+      .vouchers-panel-card { grid-area:vouchers; }
+      .history-panel-card { grid-area:history; }
+      .reward-card { gap:10px; }
+      .reward-card p, .reward-status { display:none !important; }
+      .reward-card form { margin-top:auto; }
+
       @media (max-width: 760px) {
-        .account-dashboard-page .grid.two { grid-template-columns:1fr; }
+        .account-dashboard-page .grid.two:not(.progress-mini-grid) { grid-template-columns:1fr; }
+        .account-dashboard-page .progress-mini-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+        .account-dashboard-page .progress-mini-grid .card { padding:12px; border-radius:16px; }
+        .account-dashboard-page .points-visual { max-width:150px; }
+        .account-dashboard-page .pizza-visual { max-width:150px; }
+        .account-dashboard-page .progress-center-copy strong,
+        .account-dashboard-page .pizza-center-copy strong { font-size:24px; }
+        .account-dashboard-page .progress-center-copy span,
+        .account-dashboard-page .pizza-center-copy span { font-size:10px; }
+        .account-dashboard-page .account-main-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; grid-template-areas:"rewards rewards" "actions actions" "vouchers history"; }
         .account-dashboard-page .reward-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
         .account-dashboard-page .reward-card { padding:12px; border-radius:16px; }
         .account-dashboard-page .reward-card-top { flex-direction:column; align-items:flex-start; gap:8px; }
         .account-dashboard-page .reward-icon { width:28px; height:28px; border-radius:10px; font-size:14px; }
         .account-dashboard-page .reward-cost { font-size:12px; padding:5px 8px; }
-        .account-dashboard-page .reward-status { font-size:12px; margin:8px 0 10px; }
         .account-dashboard-page .reward-card .btn { min-height:38px; padding:0 10px; font-size:12px; }
         .dashboard-hero { grid-template-columns:1fr; padding:16px; }
+        .hero-next-copy { font-size:24px; max-width:14ch; }
         .hero-qr-shell { display:none; }
-        .progress-card { padding:16px; }
       }
 
       @media (max-width: 920px) {
@@ -2596,8 +2649,7 @@ app.get("/account", authRequired, async (req, res) => {
     <section class="card dashboard-hero">
       <div class="hero-copy">
         <div class="eyebrow">Hi ${escapeHtml(firstName)}</div>
-        <h2>Dein Kundenkonto</h2>
-        <p>${escapeHtml(accountHeroCopy)}</p>
+        <p class="hero-next-copy">${escapeHtml(accountHeroCopy)}</p>
       </div>
 
       <div class="hero-qr-shell">
@@ -2605,8 +2657,8 @@ app.get("/account", authRequired, async (req, res) => {
       </div>
     </section>
 
-    <section class="grid two">
-      <div class="card progress-card">
+    <section class="grid two progress-mini-grid">
+      <div class="card progress-card points-progress-card">
         <div class="section-head">
           <h3>Punkte</h3>
           <p>Dein Fortschritt auf einen Blick.</p>
@@ -2614,10 +2666,7 @@ app.get("/account", authRequired, async (req, res) => {
 
         <div class="progress-card-inner">
           ${pointsArcMarkup(rewardProgress.pct, user.points)}
-          <div class="progress-copy">
-            <h3>${escapeHtml(rewardProgress.nextReward.title)}</h3>
-            <p>${rewardProgress.remaining === 0 ? "Du kannst jetzt einen Gutschein aktivieren." : `Ziel: ${rewardProgress.nextReward.cost} Punkte.`}</p>
-          </div>
+
         </div>
       </div>
 
@@ -2641,11 +2690,10 @@ app.get("/account", authRequired, async (req, res) => {
       </div>
     </section>
 
-    <section class="grid two" id="rewards">
-      <div class="card">
+    <section class="account-main-grid" id="rewards">
+      <div class="card rewards-panel-card">
         <div class="section-head">
           <h3>Rewards</h3>
-          <p>Aktiviere Vorteile direkt aus deinem Konto.</p>
         </div>
 
         <div class="reward-grid">
@@ -2653,30 +2701,7 @@ app.get("/account", authRequired, async (req, res) => {
         </div>
       </div>
 
-      <div class="card" id="gutscheine">
-        <div class="section-head">
-          <h3>Gutscheine</h3>
-          <p>Im Laden vom Team nach dem Scan eingelöst.</p>
-        </div>
-
-        ${
-          pizzaVoucher
-            ? `
-              <div class="voucher-spotlight">
-                <strong>Gratis-Pizza freigeschaltet</strong>
-                <span>${escapeHtml(pizzaVoucher.code)}</span>
-              </div>
-            `
-            : ""
-        }
-
-        ${vouchersHtml}
-
-      </div>
-    </section>
-
-    <section class="grid two">
-      <div class="card">
+      <div class="card actions-panel-card">
         <div class="section-head">
           <h3>Aktionen</h3>
           <p>${actionCards.length ? "Gerade verfügbar." : "Alles erledigt."}</p>
@@ -2691,10 +2716,29 @@ app.get("/account", authRequired, async (req, res) => {
         </div>
       </div>
 
-      <div class="card history-card">
+      <div class="card vouchers-panel-card" id="gutscheine">
+        <div class="section-head">
+          <h3>Gutscheine</h3>
+          <p>Im Laden vom Team eingelöst.</p>
+        </div>
+
+        ${
+          pizzaVoucher
+            ? `
+              <div class="voucher-spotlight">
+                <strong>Gratis-Pizza freigeschaltet</strong>
+                <span>${escapeHtml(pizzaVoucher.code)}</span>
+              </div>
+            `
+            : ""
+        }
+
+        ${vouchersHtml}
+      </div>
+
+      <div class="card history-card history-panel-card">
         <div class="section-head">
           <h3>Verlauf</h3>
-          <p>Zuletzt verbucht.</p>
         </div>
 
         ${eventsHtml}
@@ -3536,11 +3580,16 @@ app.get("/admin", adminRequired, async (req, res) => {
       }
 
       .reader.is-idle { min-height:0; height:0; border:0; background:transparent; }
+      .scanner-camera-card.is-hidden { display:none; }
+      .admin-status-box.is-success { background:#eef8f1; border-color:rgba(44,122,91,.24); color:#255f48; font-weight:800; }
+      .admin-status-box.is-error { background:#fff2f2; border-color:rgba(181,69,69,.24); color:#8f3535; font-weight:800; }
+      .admin-grid-single-on-mobile { grid-template-columns:minmax(0,1fr); }
+      #users-table-block summary { font-size:12px; padding:8px 10px; border-radius:999px; border:1px solid rgba(191,90,52,.12); background:#fff7f1; }
       .admin-surface.scanner-summary-card, .admin-compact-form { align-content:start; }
       .admin-compact-form label { gap:6px; }
 
       @media (max-width: 760px) {
-        .admin-stat-customers { display:none; }
+        .admin-stat-customers { display:block; }
         .admin-stats-inline { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .admin-grid-two { grid-template-columns:1fr; gap:12px; }
         .admin-surface .section-head { margin-bottom:10px; }
@@ -3809,7 +3858,7 @@ app.get("/admin", adminRequired, async (req, res) => {
             <div class="admin-mini-note">${escapeHtml(scannerConfigSummary(DAILY_CHECKIN_CONFIG))}</div>
           </div>
 
-          <div class="card admin-surface">
+          <div id="checkinCameraCard" class="card admin-surface scanner-camera-card is-hidden">
             <div class="section-head">
               <h3>Kamera</h3>
               <p>QR-Code scannen.</p>
@@ -3883,7 +3932,7 @@ app.get("/admin", adminRequired, async (req, res) => {
           </div>
         </section>
 
-        <section class="admin-grid-two">
+        <section class="admin-grid-two admin-grid-single-on-mobile">
           <div class="card admin-surface">
             <div class="section-head">
               <h3>Code manuell einlösen</h3>
@@ -3895,14 +3944,6 @@ app.get("/admin", adminRequired, async (req, res) => {
               <input id="adminCodeValue" placeholder="z. B. PB-AB12CD" autocomplete="off" />
               <button class="btn btn-primary" type="button" id="applyAdminCodeBtn">Einlösen</button>
             </div>
-          </div>
-
-          <div class="card admin-surface">
-            <div class="section-head">
-              <h3>Hinweis</h3>
-              <p>Kein Scan nötig.</p>
-            </div>
-            <div class="admin-mini-note">Der Code reicht aus.</div>
           </div>
         </section>
       </section>
@@ -3922,7 +3963,7 @@ app.get("/admin", adminRequired, async (req, res) => {
             <div id="voucherScanStatus" class="admin-status-box">Bereit.</div>
           </div>
 
-          <div class="card admin-surface">
+          <div id="voucherCameraCard" class="card admin-surface scanner-camera-card is-hidden">
             <div class="section-head">
               <h3>Kamera</h3>
               <p>QR-Code scannen.</p>
@@ -4024,6 +4065,7 @@ app.get("/admin", adminRequired, async (req, res) => {
             </div>
             ${collapsibleAdminBlock({
               id: "users-table-block",
+              label: "Infos anzeigen",
               content: usersTableHtml,
               forceCollapse: true
             })}
@@ -4084,6 +4126,19 @@ app.get("/admin", adminRequired, async (req, res) => {
         logEl.insertAdjacentHTML("afterbegin", "<div class='event-row'>" + html + "</div>");
       }
 
+      function setAdminStatus(statusEl, message, tone = "neutral") {
+        if (!statusEl) return;
+        statusEl.textContent = message;
+        statusEl.classList.toggle("is-success", tone === "success");
+        statusEl.classList.toggle("is-error", tone === "error");
+      }
+
+      function scannerCameraCardId(readerId) {
+        if (readerId === "readerCheckin") return "checkinCameraCard";
+        if (readerId === "readerVoucher") return "voucherCameraCard";
+        return "";
+      }
+
       async function stopScanner(name, startId, stopId) {
         const current = scannerState[name];
         if (current?.instance && current.running) {
@@ -4091,7 +4146,11 @@ app.get("/admin", adminRequired, async (req, res) => {
           try { await current.instance.clear(); } catch (e) {}
         }
         const readerId = current?.readerId;
-        if (readerId) document.getElementById(readerId)?.classList.add("is-idle");
+        if (readerId) {
+          document.getElementById(readerId)?.classList.add("is-idle");
+          const cardId = scannerCameraCardId(readerId);
+          if (cardId) document.getElementById(cardId)?.classList.add("is-hidden");
+        }
         scannerState[name] = { instance: null, running: false, readerId };
         const startBtn = document.getElementById(startId);
         const stopBtn = document.getElementById(stopId);
@@ -4117,12 +4176,14 @@ app.get("/admin", adminRequired, async (req, res) => {
 
         try {
           if (!window.isSecureContext) {
-            statusEl.textContent = "HTTPS oder localhost nötig.";
+            setAdminStatus(statusEl, "HTTPS oder localhost nötig.", "error");
             return;
           }
 
 
           const readerEl = document.getElementById(readerId);
+          const cardId = scannerCameraCardId(readerId);
+          if (cardId) document.getElementById(cardId)?.classList.remove("is-hidden");
           readerEl?.classList.remove("is-idle");
           const scanner = new Html5Qrcode(readerId);
           scannerState[name] = { instance: scanner, running: true, readerId };
@@ -4147,20 +4208,20 @@ app.get("/admin", adminRequired, async (req, res) => {
                 const data = await res.json();
 
                 if (!res.ok || !data.ok) {
-                  statusEl.textContent = data.error || "Fehler";
+                  setAdminStatus(statusEl, data.error || "Fehler", "error");
                   addLog(logId, "<div><strong>Fehler</strong><small>" + escapeHtmlClient(data.error || "Unbekannt") + "</small></div><div class='event-side'>–</div>");
                   await stopScanner(name, startId, stopId);
                   return;
                 }
 
-                statusEl.textContent = data.message;
+                setAdminStatus(statusEl, data.message, "success");
                 addLog(
                   logId,
                   "<div><strong>" + escapeHtmlClient(data.userName || "Kunde") + "</strong><small>" + escapeHtmlClient(data.message || "Erfolgreich") + "</small></div><div class='event-side'>" + successSide(data) + "</div>"
                 );
                 await stopScanner(name, startId, stopId);
               } catch (e) {
-                statusEl.textContent = "Scannerfehler";
+                setAdminStatus(statusEl, "Scannerfehler", "error");
                 await stopScanner(name, startId, stopId);
               }
             }
@@ -4168,9 +4229,9 @@ app.get("/admin", adminRequired, async (req, res) => {
 
           startBtn.disabled = true;
           stopBtn.disabled = false;
-          statusEl.textContent = "Scanner läuft...";
+          setAdminStatus(statusEl, "Scanner läuft...");
         } catch (e) {
-          statusEl.textContent = "Scanner konnte nicht starten.";
+          setAdminStatus(statusEl, "Scanner konnte nicht starten.", "error");
           await stopScanner(name, startId, stopId);
         }
       }
@@ -4190,7 +4251,7 @@ app.get("/admin", adminRequired, async (req, res) => {
 
       document.getElementById("stopCheckinScan")?.addEventListener("click", async () => {
         await stopScanner("checkin", "startCheckinScan", "stopCheckinScan");
-        document.getElementById("checkinScanStatus").textContent = "Scanner gestoppt.";
+        setAdminStatus(document.getElementById("checkinScanStatus"), "Scanner gestoppt.");
       });
 
       document.getElementById("startCustomScan")?.addEventListener("click", () => {
@@ -4208,7 +4269,7 @@ app.get("/admin", adminRequired, async (req, res) => {
 
       document.getElementById("stopCustomScan")?.addEventListener("click", async () => {
         await stopScanner("custom", "startCustomScan", "stopCustomScan");
-        document.getElementById("customScanStatus").textContent = "Scanner gestoppt.";
+        setAdminStatus(document.getElementById("customScanStatus"), "Scanner gestoppt.");
       });
 
       document.getElementById("applyAdminCodeBtn")?.addEventListener("click", async () => {
@@ -4216,7 +4277,7 @@ app.get("/admin", adminRequired, async (req, res) => {
         const codeInput = document.getElementById("adminCodeValue");
         const code = String(codeInput?.value || "").trim().toUpperCase().replace(/\s+/g, "");
         if (!code) {
-          statusEl.textContent = "Bitte einen Code eingeben.";
+          setAdminStatus(statusEl, "Bitte einen Code eingeben.", "error");
           return;
         }
 
@@ -4231,11 +4292,11 @@ app.get("/admin", adminRequired, async (req, res) => {
 
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          statusEl.textContent = data.error || "Fehler";
+          setAdminStatus(statusEl, data.error || "Fehler", "error");
           return;
         }
 
-        statusEl.textContent = data.message;
+        setAdminStatus(statusEl, data.message, "success");
         addLog("voucherLog", "<div><strong>" + escapeHtmlClient(data.userName) + "</strong><small>" + escapeHtmlClient(data.message) + "</small></div><div class='event-side'>" + escapeHtmlClient(data.voucherTitle) + "</div>");
         if (codeInput) codeInput.value = "";
       });
@@ -4283,12 +4344,12 @@ app.get("/admin", adminRequired, async (req, res) => {
 
             const data = await res.json();
             if (!res.ok || !data.ok) {
-              statusEl.textContent = data.error || "Fehler";
+              setAdminStatus(statusEl, data.error || "Fehler", "error");
               addLog("voucherLog", "<div><strong>Fehler</strong><small>" + escapeHtmlClient(data.error || "Unbekannt") + "</small></div><div class='event-side'>–</div>");
               return;
             }
 
-            statusEl.textContent = data.message;
+            setAdminStatus(statusEl, data.message, "success");
             addLog("voucherLog", "<div><strong>" + escapeHtmlClient(data.userName) + "</strong><small>" + escapeHtmlClient(data.message) + "</small></div><div class='event-side'>" + escapeHtmlClient(data.voucherTitle) + "</div>");
             selectedVouchers = selectedVouchers.filter(v => v.id !== btn.getAttribute("data-voucher-id"));
             renderVoucherSelection(selectedVoucherUser, selectedVouchers);
@@ -4303,11 +4364,12 @@ app.get("/admin", adminRequired, async (req, res) => {
 
         try {
           if (!window.isSecureContext) {
-            statusEl.textContent = "HTTPS oder localhost nötig.";
+            setAdminStatus(statusEl, "HTTPS oder localhost nötig.", "error");
             return;
           }
 
 
+          document.getElementById("voucherCameraCard")?.classList.remove("is-hidden");
           document.getElementById("readerVoucher")?.classList.remove("is-idle");
           const scanner = new Html5Qrcode("readerVoucher");
           scannerState.voucher = { instance: scanner, running: true, readerId: "readerVoucher" };
@@ -4331,7 +4393,7 @@ app.get("/admin", adminRequired, async (req, res) => {
 
                 const data = await res.json();
                 if (!res.ok || !data.ok) {
-                  statusEl.textContent = data.error || "Fehler";
+                  setAdminStatus(statusEl, data.error || "Fehler", "error");
                   document.getElementById("voucherSelection").innerHTML = "<p class='muted-text'>" + escapeHtmlClient(data.error || "Fehler") + "</p>";
                   await stopScanner("voucher", "startVoucherScan", "stopVoucherScan");
                   return;
@@ -4339,11 +4401,11 @@ app.get("/admin", adminRequired, async (req, res) => {
 
                 selectedVoucherUser = data.userName || "";
                 selectedVouchers = data.vouchers || [];
-                statusEl.textContent = data.message;
+                setAdminStatus(statusEl, data.message, "success");
                 renderVoucherSelection(selectedVoucherUser, selectedVouchers);
                 await stopScanner("voucher", "startVoucherScan", "stopVoucherScan");
               } catch (e) {
-                statusEl.textContent = "Scannerfehler";
+                setAdminStatus(statusEl, "Scannerfehler", "error");
                 await stopScanner("voucher", "startVoucherScan", "stopVoucherScan");
               }
             }
@@ -4351,16 +4413,16 @@ app.get("/admin", adminRequired, async (req, res) => {
 
           startBtn.disabled = true;
           stopBtn.disabled = false;
-          statusEl.textContent = "Scanner läuft...";
+          setAdminStatus(statusEl, "Scanner läuft...");
         } catch (e) {
-          statusEl.textContent = "Scanner konnte nicht starten.";
+          setAdminStatus(statusEl, "Scanner konnte nicht starten.", "error");
           await stopScanner("voucher", "startVoucherScan", "stopVoucherScan");
         }
       });
 
       document.getElementById("stopVoucherScan")?.addEventListener("click", async () => {
         await stopScanner("voucher", "startVoucherScan", "stopVoucherScan");
-        document.getElementById("voucherScanStatus").textContent = "Scanner gestoppt.";
+        setAdminStatus(document.getElementById("voucherScanStatus"), "Scanner gestoppt.");
       });
     </script>
   `;
