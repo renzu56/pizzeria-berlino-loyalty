@@ -69,6 +69,7 @@ const ADMIN_RATE_LIMIT_WINDOW_MS = Number(process.env.ADMIN_RATE_LIMIT_WINDOW_MS
 const ADMIN_RATE_LIMIT_MAX = Number(process.env.ADMIN_RATE_LIMIT_MAX || 180);
 const INSTAGRAM_TASK_SECONDS = Number(process.env.INSTAGRAM_TASK_SECONDS || 5);
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
+const CUSTOMER_EVENT_HISTORY_DAYS = Number(process.env.CUSTOMER_EVENT_HISTORY_DAYS || 7);
 
 const requestBuckets = new Map();
 
@@ -121,6 +122,7 @@ function dayKey(date = new Date()) {
 function formatDateTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleString("de-DE", {
+    timeZone: "Europe/Berlin",
     dateStyle: "short",
     timeStyle: "short"
   });
@@ -379,8 +381,14 @@ async function getOpenVouchers(userId) {
 }
 
 async function getUserEvents(userId, limit = 20) {
+  const historyDays = Math.max(1, Number(CUSTOMER_EVENT_HISTORY_DAYS || 7));
+  const since = new Date(Date.now() - historyDays * 24 * 60 * 60 * 1000);
+
   return prisma.event.findMany({
-    where: { userId },
+    where: {
+      userId,
+      createdAt: { gte: since }
+    },
     orderBy: { createdAt: "desc" },
     take: limit
   });
@@ -1276,11 +1284,12 @@ function describeSector(centerX, centerY, radius, startAngle, endAngle) {
 
 function pointsArcMarkup(percent, points) {
   const safePercent = Math.max(0, Math.min(100, Number(percent || 0)));
-  const endAngle = 180 + safePercent * 1.8;
+  const arcLength = 245;
+  const dashOffset = arcLength - (arcLength * safePercent) / 100;
 
   return `
     <div class="progress-visual points-visual">
-      <svg viewBox="0 0 220 140" aria-hidden="true">
+      <svg viewBox="0 0 220 132" aria-hidden="true" class="points-arc-svg">
         <defs>
           <linearGradient id="pointsArcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stop-color="#bf5a34"></stop>
@@ -1289,26 +1298,24 @@ function pointsArcMarkup(percent, points) {
         </defs>
 
         <path
-          d="${describeArc(110, 110, 78, 180, 360)}"
+          d="M 32 108 A 78 78 0 0 1 188 108"
           fill="none"
           stroke="rgba(191,90,52,.12)"
           stroke-width="14"
           stroke-linecap="round"
+          pathLength="245"
         ></path>
 
-        ${
-          safePercent > 0
-            ? `
-              <path
-                d="${describeArc(110, 110, 78, 180, endAngle)}"
-                fill="none"
-                stroke="url(#pointsArcGradient)"
-                stroke-width="14"
-                stroke-linecap="round"
-              ></path>
-            `
-            : ""
-        }
+        <path
+          d="M 32 108 A 78 78 0 0 1 188 108"
+          fill="none"
+          stroke="url(#pointsArcGradient)"
+          stroke-width="14"
+          stroke-linecap="round"
+          pathLength="245"
+          stroke-dasharray="${arcLength}"
+          stroke-dashoffset="${dashOffset}"
+        ></path>
       </svg>
 
       <div class="progress-center-copy">
@@ -1376,6 +1383,15 @@ function taskStateLabel(status, idleLabel = "Offen") {
   if (status === "pending") return "Wird geprüft";
   if (status === "rejected") return "Erneut senden";
   return idleLabel;
+}
+
+function rewardIcon(rewardId) {
+  return ({
+    r15: "🏷️",
+    r100: "🥤",
+    r175: "⚡",
+    r300: "🍕"
+  })[rewardId] || "🎁";
 }
 
 function collapsibleAdminBlock({ id, label = "mehr", content, count = 0, forceCollapse = false, threshold = 0 }) {
@@ -1958,7 +1974,7 @@ app.get("/account", authRequired, async (req, res) => {
   const [qr, vouchers, events, instagramTask, reviewSubmission, tiktokSubmission, customTasks] = await Promise.all([
     memberQrDataUrl(user),
     getOpenVouchers(user.id),
-    getUserEvents(user.id, 10),
+    getUserEvents(user.id, 8),
     getTaskState(user.id, "instagram"),
     latestSubmission(user.id, "review"),
     latestSubmission(user.id, "tiktok"),
@@ -1980,16 +1996,18 @@ app.get("/account", authRequired, async (req, res) => {
       ? `${rewardProgress.nextReward.title} ist bereit.`
       : `Nächster Vorteil: ${rewardProgress.nextReward.title} in ${rewardProgress.remaining} Punkten.`;
 
-  const accountHeroCopy =
-    rewardProgress.remaining === 0
-      ? `Dein nächster Vorteil ist schon freigeschaltet.`
-      : `Du bist ${rewardProgress.remaining} Punkte von ${rewardProgress.nextReward.title} entfernt.`;
+  const accountHeroCopy = vouchers.length
+    ? `${vouchers.length} offener Gutschein wartet auf dich.`
+    : `Scanne deine Karte im Laden und behalte deine Vorteile im Blick.`;
 
   const rewardCardsHtml = rewards.map(reward => {
     return `
       <div class="reward-card ${reward.canRedeem ? "reward-open" : ""}">
         <div class="reward-card-top">
-          <strong>${escapeHtml(reward.title)}</strong>
+          <div class="reward-heading">
+            <span class="reward-icon" aria-hidden="true">${rewardIcon(reward.id)}</span>
+            <strong>${escapeHtml(reward.title)}</strong>
+          </div>
           <span class="reward-cost">ab ${reward.cost} Pkt</span>
         </div>
 
@@ -2165,19 +2183,22 @@ app.get("/account", authRequired, async (req, res) => {
 
   const eventsHtml = events.length
     ? `
-      <div class="event-list">
-        ${events.map(event => `
-          <div class="event-row">
-            <div>
-              <strong>${escapeHtml(event.note)}</strong>
-              <small>${formatDateTime(event.createdAt)}</small>
+      <details class="history-disclosure">
+        <summary>Verlauf anzeigen <span>${events.length}</span></summary>
+        <div class="event-list history-list">
+          ${events.map(event => `
+            <div class="event-row">
+              <div>
+                <strong>${escapeHtml(event.note)}</strong>
+                <small>${formatDateTime(event.createdAt)}</small>
+              </div>
+              <div class="event-side">${escapeHtml(formatEventSide(event))}</div>
             </div>
-            <div class="event-side">${escapeHtml(formatEventSide(event))}</div>
-          </div>
-        `).join("")}
-      </div>
+          `).join("")}
+        </div>
+      </details>
     `
-    : `<p class="muted-text">Noch keine Aktivitäten vorhanden.</p>`;
+    : `<p class="muted-text">Noch keine Aktivitäten in den letzten ${CUSTOMER_EVENT_HISTORY_DAYS} Tagen.</p>`;
 
   const accountHead = `
     <style>
@@ -2533,6 +2554,28 @@ app.get("/account", authRequired, async (req, res) => {
       .reward-status { color:#6d5b4f; }
       .reward-card form { margin:0; }
 
+      .reward-heading { display:flex; align-items:center; gap:8px; min-width:0; }
+      .reward-icon { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:12px; background:#fff7f1; border:1px solid rgba(191,90,52,.12); font-size:16px; flex:0 0 auto; }
+      .history-disclosure { border:1px solid rgba(119,78,45,.12); border-radius:18px; background:#fffdf9; overflow:hidden; }
+      .history-disclosure summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 16px; font-weight:800; }
+      .history-disclosure summary::-webkit-details-marker { display:none; }
+      .history-disclosure summary span { display:inline-flex; align-items:center; justify-content:center; min-width:28px; min-height:28px; border-radius:999px; background:#fff7f1; color:#9b4d27; font-size:12px; }
+      .history-list { padding:0 16px 14px; }
+
+      @media (max-width: 760px) {
+        .account-dashboard-page .grid.two { grid-template-columns:1fr; }
+        .account-dashboard-page .reward-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+        .account-dashboard-page .reward-card { padding:12px; border-radius:16px; }
+        .account-dashboard-page .reward-card-top { flex-direction:column; align-items:flex-start; gap:8px; }
+        .account-dashboard-page .reward-icon { width:28px; height:28px; border-radius:10px; font-size:14px; }
+        .account-dashboard-page .reward-cost { font-size:12px; padding:5px 8px; }
+        .account-dashboard-page .reward-status { font-size:12px; margin:8px 0 10px; }
+        .account-dashboard-page .reward-card .btn { min-height:38px; padding:0 10px; font-size:12px; }
+        .dashboard-hero { grid-template-columns:1fr; padding:16px; }
+        .hero-qr-shell { display:none; }
+        .progress-card { padding:16px; }
+      }
+
       @media (max-width: 920px) {
         .dashboard-hero,
         .progress-card-inner {
@@ -2573,7 +2616,7 @@ app.get("/account", authRequired, async (req, res) => {
           ${pointsArcMarkup(rewardProgress.pct, user.points)}
           <div class="progress-copy">
             <h3>${escapeHtml(rewardProgress.nextReward.title)}</h3>
-            <p>${rewardProgress.remaining === 0 ? "Bereit zur Aktivierung." : `Noch ${rewardProgress.remaining} Punkte.`}</p>
+            <p>${rewardProgress.remaining === 0 ? "Du kannst jetzt einen Gutschein aktivieren." : `Ziel: ${rewardProgress.nextReward.cost} Punkte.`}</p>
           </div>
         </div>
       </div>
@@ -3489,6 +3532,21 @@ app.get("/admin", adminRequired, async (req, res) => {
           #fffaf6;
         border:1px dashed rgba(191,90,52,.22);
         overflow:hidden;
+        transition:min-height .2s ease, height .2s ease, border-color .2s ease, background .2s ease;
+      }
+
+      .reader.is-idle { min-height:0; height:0; border:0; background:transparent; }
+      .admin-surface.scanner-summary-card, .admin-compact-form { align-content:start; }
+      .admin-compact-form label { gap:6px; }
+
+      @media (max-width: 760px) {
+        .admin-stat-customers { display:none; }
+        .admin-stats-inline { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .admin-grid-two { grid-template-columns:1fr; gap:12px; }
+        .admin-surface .section-head { margin-bottom:10px; }
+        .admin-surface .section-head h3 { font-size:20px; }
+        .admin-mini-note { font-size:12px; border-radius:14px; }
+        .reader:not(.is-idle) { min-height:240px; }
       }
 
       .admin-list-card .event-list,
@@ -3708,7 +3766,7 @@ app.get("/admin", adminRequired, async (req, res) => {
         <div class="card admin-hero-card">
           <div class="admin-hero-copy">
             <div class="admin-stats-inline">
-              <div class="admin-stat-box">
+              <div class="admin-stat-box admin-stat-customers">
                 <strong>${userCount}</strong>
                 <span>Kunden</span>
               </div>
@@ -3756,7 +3814,7 @@ app.get("/admin", adminRequired, async (req, res) => {
               <h3>Kamera</h3>
               <p>QR-Code scannen.</p>
             </div>
-            <div id="readerCheckin" class="reader"></div>
+            <div id="readerCheckin" class="reader is-idle"></div>
           </div>
         </section>
 
@@ -3799,7 +3857,7 @@ app.get("/admin", adminRequired, async (req, res) => {
             </div>
 
             <div id="customScanStatus" class="admin-status-box">Bereit.</div>
-            <div id="readerCustom" class="reader"></div>
+            <div id="readerCustom" class="reader is-idle"></div>
           </div>
         </section>
 
@@ -3869,7 +3927,7 @@ app.get("/admin", adminRequired, async (req, res) => {
               <h3>Kamera</h3>
               <p>QR-Code scannen.</p>
             </div>
-            <div id="readerVoucher" class="reader"></div>
+            <div id="readerVoucher" class="reader is-idle"></div>
           </div>
         </section>
 
@@ -4032,7 +4090,9 @@ app.get("/admin", adminRequired, async (req, res) => {
           try { await current.instance.stop(); } catch (e) {}
           try { await current.instance.clear(); } catch (e) {}
         }
-        scannerState[name] = { instance: null, running: false };
+        const readerId = current?.readerId;
+        if (readerId) document.getElementById(readerId)?.classList.add("is-idle");
+        scannerState[name] = { instance: null, running: false, readerId };
         const startBtn = document.getElementById(startId);
         const stopBtn = document.getElementById(stopId);
         if (startBtn) startBtn.disabled = false;
@@ -4062,8 +4122,10 @@ app.get("/admin", adminRequired, async (req, res) => {
           }
 
 
+          const readerEl = document.getElementById(readerId);
+          readerEl?.classList.remove("is-idle");
           const scanner = new Html5Qrcode(readerId);
-          scannerState[name] = { instance: scanner, running: true };
+          scannerState[name] = { instance: scanner, running: true, readerId };
 
           await scanner.start(
             { facingMode: "environment" },
@@ -4246,8 +4308,9 @@ app.get("/admin", adminRequired, async (req, res) => {
           }
 
 
+          document.getElementById("readerVoucher")?.classList.remove("is-idle");
           const scanner = new Html5Qrcode("readerVoucher");
-          scannerState.voucher = { instance: scanner, running: true };
+          scannerState.voucher = { instance: scanner, running: true, readerId: "readerVoucher" };
 
           await scanner.start(
             { facingMode: "environment" },
