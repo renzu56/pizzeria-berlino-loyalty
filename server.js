@@ -2163,7 +2163,7 @@ app.get("/account", authRequired, async (req, res) => {
   if (tiktokSubmission?.status !== "approved") {
     actionCards.push(renderSubmissionTaskCard({
       title: "🎬 TikTok Beitrag",
-      description: ""
+      description: "",
       href: "",
       hrefLabel: "",
       formAction: "/tasks/tiktok",
