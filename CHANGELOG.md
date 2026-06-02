@@ -14,3 +14,18 @@
 
 - Fixed missing comma in TikTok reward/action card config inside `server.js`.
 - Verified with `node --check server.js`.
+
+## Real syntax hotfix verification
+
+- Patched `server.js` directly, not only the changelog.
+- TikTok reward/action template now has a valid comma-separated object and includes `submission: tiktokSubmission`.
+- Verified with `node --check server.js`.
+
+## Reward/action layout fix
+
+- Reward price text moved below titles and made smaller to prevent overflow.
+- Reward progress bars constrained to card width.
+- Reward cards aligned to consistent height even with two-line titles.
+- Instagram action copy removed and button made smaller.
+- TikTok, Google Review and Instagram action labels/badges separated visually.
+- Mobile action inputs made more compact.

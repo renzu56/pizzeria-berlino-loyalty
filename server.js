@@ -2164,6 +2164,7 @@ app.get("/account", authRequired, async (req, res) => {
     actionCards.push(renderSubmissionTaskCard({
       title: "🎬 TikTok Beitrag",
       description: "",
+      submission: tiktokSubmission,
       href: "",
       hrefLabel: "",
       formAction: "/tasks/tiktok",
@@ -2946,9 +2947,8 @@ app.get("/account", authRequired, async (req, res) => {
       </div>
 
       <div class="card actions-panel-card">
-        <div class="section-head">
+        <div class="section-head actions-section-head">
           <h3>Aktionen</h3>
-          <p>${actionCards.length ? "Gerade verfügbar." : "Alles erledigt."}</p>
         </div>
 
         <div class="tasks-stack">
