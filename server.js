@@ -2153,7 +2153,7 @@ app.get("/account", authRequired, async (req, res) => {
       formAction: "/tasks/review/submit",
       placeholder: "Link",
       buttonLabel: reviewSubmission?.status === "rejected" ? "Senden" : "Senden",
-      badge: "Google"
+      badge: "Review"
     }));
   }
 
