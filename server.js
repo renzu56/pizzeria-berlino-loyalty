@@ -1165,7 +1165,7 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       </header>
 
       <main class="page">
-        ${description ? `<section class="page-head"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p></section>` : ""}
+        ${description ? `<section class="page-head"><h1>${escapeHtml(title)}</h1>${description ? `<p>${escapeHtml(description)}</p>` : ""}</section>` : ""}
         ${body}
       </main>
 
@@ -1251,9 +1251,11 @@ function nextPizzaProgress(pizzaCount) {
 }
 
 function progressBar(percent, fill = "linear-gradient(90deg,#bf5a34 0%,#e28a56 100%)") {
+  const safePercent = Math.max(0, Math.min(100, Number(percent || 0)));
+
   return `
-    <div style="height:10px;background:#efe6db;border-radius:999px;overflow:hidden">
-      <div style="width:${percent}%;height:100%;background:${fill};border-radius:999px"></div>
+    <div class="reward-progress-track" aria-hidden="true">
+      <div class="reward-progress-fill" style="width:${safePercent}%;background:${fill}"></div>
     </div>
   `;
 }
@@ -2003,33 +2005,31 @@ app.get("/account", authRequired, async (req, res) => {
     : `Noch ${rewardProgress.remaining} Punkte bis ${rewardProgress.nextReward.title}.`;
 
   const rewardCardsHtml = rewards.map(reward => {
-    const rewardProgressMarkup = progressBar(
-      rewardCardProgress(user.points, reward.cost),
-      reward.canRedeem
-        ? "linear-gradient(90deg,#9f4320 0%,#e58a47 100%)"
-        : "linear-gradient(90deg,#bf5a34 0%,#e28a56 100%)"
-    );
-
-    const rewardInner = `
+    const rewardInnerHtml = `
       <div class="reward-card-top">
         <div class="reward-heading">
           <span class="reward-icon" aria-hidden="true">${rewardIcon(reward.id)}</span>
-          <strong>${escapeHtml(reward.title)}</strong>
+          <span class="reward-copy">
+            <strong>${escapeHtml(reward.title)}</strong>
+            <span class="reward-cost">ab ${reward.cost} Pkt</span>
+          </span>
         </div>
-        <span class="reward-cost">ab ${reward.cost} Pkt</span>
       </div>
 
-      ${rewardProgressMarkup}
-
-      ${reward.canRedeem ? `<span class="reward-action">Einlösen</span>` : ""}
+      ${progressBar(
+        rewardCardProgress(user.points, reward.cost),
+        reward.canRedeem
+          ? "linear-gradient(90deg,#a84522 0%,#d9783f 100%)"
+          : "linear-gradient(90deg,#bf5a34 0%,#e28a56 100%)"
+      )}
     `;
 
     if (reward.canRedeem) {
       return `
         <form class="reward-card-form" method="post" action="/account/redeem-reward">
           <input type="hidden" name="rewardId" value="${reward.id}" />
-          <button class="reward-card reward-card-button reward-open" type="submit" aria-label="${escapeHtml(reward.title)} einlösen">
-            ${rewardInner}
+          <button class="reward-card reward-open reward-card-button" type="submit" aria-label="${escapeHtml(reward.title)} einlösen">
+            ${rewardInnerHtml}
           </button>
         </form>
       `;
@@ -2037,7 +2037,7 @@ app.get("/account", authRequired, async (req, res) => {
 
     return `
       <div class="reward-card reward-locked" aria-disabled="true">
-        ${rewardInner}
+        ${rewardInnerHtml}
       </div>
     `;
   }).join("");
@@ -2075,9 +2075,6 @@ app.get("/account", authRequired, async (req, res) => {
     const submittedLink = submission?.link
       ? `<div class="task-link-line"><a href="${escapeHtml(submission.link)}" target="_blank" rel="noreferrer">Link ansehen</a></div>`
       : "";
-    const descriptionMarkup = description
-      ? `<p>${escapeHtml(description)}</p>`
-      : "";
 
     if (status === "pending") {
       return `
@@ -2085,7 +2082,7 @@ app.get("/account", authRequired, async (req, res) => {
           <div class="task-meta">
             <div>
               <strong>${escapeHtml(title)}</strong>
-              ${descriptionMarkup}
+              ${description ? `<p>${escapeHtml(description)}</p>` : ""}
             </div>
             <span class="task-badge ${statusClass}">${escapeHtml(badgeText)}</span>
           </div>
@@ -2099,7 +2096,7 @@ app.get("/account", authRequired, async (req, res) => {
         <div class="task-meta">
           <div>
             <strong>${escapeHtml(title)}</strong>
-            ${descriptionMarkup}
+            ${description ? `<p>${escapeHtml(description)}</p>` : ""}
           </div>
           <span class="task-badge ${statusClass}">${escapeHtml(badgeText)}</span>
         </div>
@@ -2108,11 +2105,11 @@ app.get("/account", authRequired, async (req, res) => {
 
         ${
           href
-            ? `<div class="button-row task-open-row"><a class="btn btn-ghost" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(hrefLabel)}</a></div>`
+            ? `<div class="button-row"><a class="btn btn-ghost" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(hrefLabel)}</a></div>`
             : ""
         }
 
-        <form class="inline-form task-proof-form" method="post" action="${formAction}">
+        <form class="inline-form" method="post" action="${formAction}">
           <input name="link" placeholder="${escapeHtml(placeholder)}" required />
           <button class="btn btn-secondary" type="submit">${escapeHtml(buttonLabel)}</button>
         </form>
@@ -2140,7 +2137,7 @@ app.get("/account", authRequired, async (req, res) => {
         </div>
 
         <div class="button-row">
-          <a class="btn btn-primary js-instagram-claim" href="${escapeHtml(INSTAGRAM_URL)}" target="_blank" rel="noreferrer">Instagram öffnen</a>
+          <a class="btn btn-primary js-instagram-claim" href="${escapeHtml(INSTAGRAM_URL)}" target="_blank" rel="noreferrer">Öffnen</a>
         </div>
       </div>
     `);
@@ -2176,7 +2173,7 @@ app.get("/account", authRequired, async (req, res) => {
 
   for (const entry of customTaskEntries) {
     actionCards.push(renderSubmissionTaskCard({
-      title: `🎯 ${entry.task.title}`,
+      title: entry.task.title,
       description: entry.task.description,
       submission: entry.submission,
       href: entry.task.targetUrl || "",
@@ -2651,241 +2648,240 @@ app.get("/account", authRequired, async (req, res) => {
           align-items:flex-start;
         }
       }
-
-
-      /* Final account UX cleanup: clickable rewards + compact action cards */
+    
+      /* Exact reward/action visibility fix */
+      .actions-section-head {
+        margin-bottom: 10px !important;
+      }
+      .actions-section-head p,
+      .actions-panel-card .section-head p,
+      .actions-panel-card .task-meta p {
+        display: none !important;
+      }
       .reward-grid {
-        align-items:stretch;
+        align-items: stretch !important;
       }
-
       .reward-card-form {
-        display:block;
-        margin:0;
-        height:100%;
+        display: block !important;
+        margin: 0 !important;
+        min-width: 0 !important;
+        height: 100% !important;
       }
-
       .reward-card,
-      .reward-card.reward-open,
-      .reward-card.reward-locked {
-        width:100%;
-        height:100%;
-        min-height:132px;
-        display:grid;
-        grid-template-rows:minmax(44px,auto) 10px auto;
-        gap:12px;
-        padding:15px;
-        text-align:left;
-        color:var(--text);
-        border-radius:18px;
-        background:#fffdf9;
-        border:1px solid rgba(119,78,45,.13);
-        box-shadow:0 12px 26px rgba(45,28,14,.045);
-      }
-
       .reward-card-button {
-        appearance:none;
-        font:inherit;
-        cursor:pointer;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        gap: 10px !important;
+        text-align: left !important;
       }
-
+      .reward-card-button {
+        appearance: none !important;
+        border: 1px solid rgba(191,90,52,.22) !important;
+        border-radius: 18px !important;
+        padding: 16px !important;
+        font: inherit !important;
+        color: inherit !important;
+        cursor: pointer !important;
+      }
       .reward-card-button:hover {
-        transform:translateY(-1px);
-        border-color:rgba(191,90,52,.3);
-        box-shadow:0 16px 34px rgba(45,28,14,.075);
+        transform: translateY(-1px) !important;
+        box-shadow: 0 16px 34px rgba(45,28,14,.08) !important;
       }
-
-      .reward-open {
-        background:linear-gradient(135deg,#fff1e6 0%,#fffdf9 100%) !important;
-        border-color:rgba(191,90,52,.28) !important;
-        box-shadow:inset 0 0 0 1px rgba(191,90,52,.05), 0 14px 28px rgba(45,28,14,.06) !important;
-      }
-
-      .reward-locked {
-        opacity:.74;
-      }
-
       .reward-card-top {
-        min-height:44px;
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start !important;
-        gap:10px;
-        margin-bottom:0;
+        display: block !important;
+        margin: 0 !important;
+        min-width: 0 !important;
       }
-
       .reward-heading {
-        display:flex;
-        align-items:flex-start;
-        gap:8px;
-        min-width:0;
+        display: grid !important;
+        grid-template-columns: 34px minmax(0, 1fr) !important;
+        align-items: start !important;
+        gap: 8px !important;
+        min-width: 0 !important;
+        width: 100% !important;
       }
-
-      .reward-heading strong {
-        min-height:36px;
-        display:flex;
-        align-items:center;
-        font-size:15px;
-        line-height:1.14;
-        letter-spacing:-.02em;
-      }
-
       .reward-icon {
-        display:inline-grid;
-        place-items:center;
-        width:30px;
-        height:30px;
-        flex:0 0 30px;
-        border-radius:11px;
-        background:#fff7f1;
-        border:1px solid rgba(191,90,52,.12);
-        line-height:1;
-        font-size:16px;
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
+        border-radius: 10px !important;
+        font-size: 16px !important;
+        line-height: 1 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
-
-      .reward-cost {
-        padding:0 !important;
-        border:none !important;
-        background:transparent !important;
-        color:#8a6a55 !important;
-        font-size:12px !important;
-        line-height:1.1;
-        font-weight:850;
-        white-space:nowrap;
-        letter-spacing:-.01em;
+      .reward-copy {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 3px !important;
       }
-
-      .reward-action {
-        align-self:end;
-        justify-self:start;
-        font-size:12px;
-        font-weight:850;
-        color:#9f4320;
+      .reward-copy strong,
+      .reward-heading strong,
+      .reward-card strong {
+        min-height: 36px !important;
+        max-width: 100% !important;
+        font-size: 14px !important;
+        line-height: 1.12 !important;
+        display: block !important;
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
       }
-
-      .reward-card form,
+      .reward-cost,
+      .reward-meta {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #8a5b3e !important;
+        font-size: 10px !important;
+        line-height: 1.1 !important;
+        font-weight: 850 !important;
+        letter-spacing: .04em !important;
+        text-transform: uppercase !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+      }
+      .reward-progress-track {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        height: 9px !important;
+        border-radius: 999px !important;
+        background: #efe6db !important;
+        overflow: hidden !important;
+        flex: 0 0 auto !important;
+      }
+      .reward-progress-fill {
+        display: block !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        border-radius: inherit !important;
+      }
+      .reward-open {
+        background: linear-gradient(180deg,#fff4ea 0%,#fffdf9 100%) !important;
+        border-color: rgba(191,90,52,.24) !important;
+      }
+      .reward-locked {
+        background: #fffdf9 !important;
+        opacity: .82 !important;
+      }
       .reward-card .btn,
-      .reward-status,
-      .reward-card p {
-        display:none !important;
+      .reward-card button:not(.reward-card-button) {
+        display: none !important;
       }
-
       .task-card {
-        position:relative;
-        padding:15px 92px 15px 15px;
-        border-radius:18px;
-        border:1px solid rgba(119,78,45,.12);
-        background:linear-gradient(180deg,#fffdf9 0%,#fff8f2 100%);
+        position: relative !important;
+        min-width: 0 !important;
       }
-
       .task-meta {
-        display:flex !important;
-        flex-direction:row !important;
-        align-items:flex-start !important;
-        justify-content:space-between;
-        gap:12px;
+        position: relative !important;
+        padding-right: 72px !important;
+        align-items: flex-start !important;
       }
-
       .task-meta strong {
-        margin:0;
-        line-height:1.2;
+        margin: 0 !important;
       }
-
-      .task-meta p {
-        margin-top:4px;
-      }
-
       .task-badge {
-        position:absolute;
-        top:12px;
-        right:12px;
-        min-width:auto;
-        min-height:30px;
-        padding:6px 9px;
-        border-radius:999px;
-        font-size:12px;
-        line-height:1;
-        background:#fff7f1 !important;
-        color:#8b4d28 !important;
-        border:1px solid rgba(191,90,52,.13);
+        position: absolute !important;
+        top: 0 !important;
+        right: 0 !important;
+        min-width: 0 !important;
+        padding: 5px 8px !important;
+        border-radius: 999px !important;
+        font-size: 11px !important;
+        line-height: 1 !important;
       }
-
-      .task-open-row {
-        margin-top:12px;
+      .task-card .button-row {
+        margin-top: 10px !important;
+        flex-direction: row !important;
+        align-items: center !important;
       }
-
-      .task-proof-form {
-        margin-top:12px;
+      .task-card .btn,
+      .task-card .js-instagram-claim {
+        width: auto !important;
+        min-height: 32px !important;
+        padding: 0 11px !important;
+        border-radius: 10px !important;
+        font-size: 12px !important;
       }
-
-      .task-proof-form input {
-        min-height:42px;
-        padding:10px 12px;
+      .task-card .inline-form {
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        gap: 8px !important;
+        margin-top: 10px !important;
       }
-
+      .task-card .inline-form input {
+        min-height: 36px !important;
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+      }
+      .task-card .inline-form .btn {
+        min-height: 36px !important;
+        white-space: nowrap !important;
+      }
       @media (max-width: 760px) {
-        .account-dashboard-page .reward-card {
-          min-height:120px;
-          padding:12px;
-          border-radius:16px;
-          gap:10px;
+        .account-dashboard-page .reward-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 10px !important;
         }
-
-        .account-dashboard-page .reward-card-top {
-          min-height:42px;
-          flex-direction:row !important;
-          align-items:flex-start !important;
+        .account-dashboard-page .reward-card,
+        .account-dashboard-page .reward-card-button {
+          padding: 12px !important;
+          border-radius: 15px !important;
         }
-
-        .account-dashboard-page .reward-heading strong {
-          min-height:34px;
-          font-size:13px;
+        .account-dashboard-page .reward-heading {
+          grid-template-columns: 28px minmax(0, 1fr) !important;
+          gap: 6px !important;
         }
-
         .account-dashboard-page .reward-icon {
-          width:26px;
-          height:26px;
-          flex-basis:26px;
-          border-radius:9px;
-          font-size:14px;
+          width: 26px !important;
+          height: 26px !important;
+          min-width: 26px !important;
+          min-height: 26px !important;
+          font-size: 14px !important;
         }
-
+        .account-dashboard-page .reward-copy strong,
+        .account-dashboard-page .reward-heading strong,
+        .account-dashboard-page .reward-card strong {
+          min-height: 44px !important;
+          font-size: 12px !important;
+          line-height: 1.12 !important;
+        }
         .account-dashboard-page .reward-cost {
-          font-size:10.5px !important;
+          font-size: 9px !important;
         }
-
         .account-dashboard-page .task-card {
-          padding:12px 74px 12px 12px;
-          border-radius:16px;
+          padding: 12px !important;
         }
-
-        .account-dashboard-page .task-badge {
-          top:10px;
-          right:10px;
-          font-size:11px;
-          padding:6px 8px;
+        .account-dashboard-page .task-meta {
+          padding-right: 62px !important;
         }
-
-        .account-dashboard-page .task-proof-form {
-          display:grid;
-          grid-template-columns:1fr;
-          gap:8px;
+        .account-dashboard-page .task-meta strong {
+          font-size: 13px !important;
         }
-
-        .account-dashboard-page .task-proof-form input {
-          min-height:38px;
-          padding:9px 10px;
-          font-size:13px;
+        .account-dashboard-page .task-card .inline-form {
+          grid-template-columns: 1fr !important;
         }
-
-        .account-dashboard-page .task-proof-form .btn,
-        .account-dashboard-page .task-open-row .btn {
-          min-height:38px;
-          padding:0 10px;
-          font-size:12px;
-          width:100%;
+        .account-dashboard-page .task-card .inline-form .btn {
+          justify-self: start !important;
         }
       }
-    </style>
+</style>
   `;
 
   const body = `
@@ -2990,20 +2986,12 @@ app.get("/account", authRequired, async (req, res) => {
     </section>
     <script>
       const instagramActionLink = document.querySelector(".js-instagram-claim");
-      const instagramProfileUrl = ${JSON.stringify(INSTAGRAM_URL)};
-      const instagramTaskSeconds = ${INSTAGRAM_TASK_SECONDS};
-      const instagramReturnKey = "pizzaBerlinoInstagramStartedAt";
       let instagramActionRunning = false;
-
-      function instagramUsernameFromUrl(url) {
-        try {
-          return new URL(url).pathname.replace(/^\/+|\/+$/g, "").split("/")[0] || "";
-        } catch {
-          return "";
-        }
-      }
+      let instagramReturnHandlerAttached = false;
 
       async function completeInstagramAction() {
+        if (!instagramActionRunning) return;
+
         try {
           const res = await fetch("/tasks/instagram/complete?mode=silent", {
             method: "POST",
@@ -3018,26 +3006,29 @@ app.get("/account", authRequired, async (req, res) => {
             window.location.href = "/account?error=" + encodeURIComponent(message);
             return;
           }
-
-          window.location.href = "/account?success=Instagram+Aktion+abgeschlossen";
         } catch (error) {
           console.error(error);
           window.location.href = "/account?error=Instagram-Aktion+konnte+nicht+abgeschlossen+werden";
+          return;
         }
+
+        window.location.href = "/account?success=Instagram+Aktion+abgeschlossen";
       }
 
-      async function completeInstagramIfReady() {
-        const startedAt = Number(sessionStorage.getItem(instagramReturnKey) || 0);
-        if (!startedAt) return;
-        if (Date.now() - startedAt < instagramTaskSeconds * 1000) return;
-        sessionStorage.removeItem(instagramReturnKey);
-        await completeInstagramAction();
-      }
+      function attachInstagramReturnHandler() {
+        if (instagramReturnHandlerAttached) return;
+        instagramReturnHandlerAttached = true;
 
-      window.addEventListener("pageshow", completeInstagramIfReady);
-      document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) completeInstagramIfReady();
-      });
+        window.addEventListener("focus", () => {
+          if (!instagramActionRunning) return;
+          window.setTimeout(completeInstagramAction, ${INSTAGRAM_TASK_SECONDS * 1000});
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if (!instagramActionRunning || document.hidden) return;
+          window.setTimeout(completeInstagramAction, ${INSTAGRAM_TASK_SECONDS * 1000});
+        });
+      }
 
       instagramActionLink?.addEventListener("click", async event => {
         event.preventDefault();
@@ -3046,6 +3037,7 @@ app.get("/account", authRequired, async (req, res) => {
         instagramActionRunning = true;
         instagramActionLink.classList.add("is-loading");
         instagramActionLink.textContent = "Wird erfasst...";
+        attachInstagramReturnHandler();
 
         try {
           await fetch("/tasks/instagram/opened", {
@@ -3057,27 +3049,22 @@ app.get("/account", authRequired, async (req, res) => {
           console.error(error);
         }
 
-        const href = instagramActionLink.getAttribute("href") || instagramProfileUrl;
-        const username = instagramUsernameFromUrl(href);
-        const deepLink = username ? "instagram://user?username=" + encodeURIComponent(username) : "";
+        const href = instagramActionLink.getAttribute("href") || "";
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        sessionStorage.setItem(instagramReturnKey, String(Date.now()));
-
-        window.setTimeout(completeInstagramIfReady, instagramTaskSeconds * 1000 + 400);
-
-        if (isMobile && deepLink) {
-          window.location.href = deepLink;
-          window.setTimeout(() => {
-            if (!document.hidden) window.location.href = href;
-          }, 900);
+        if (isMobile) {
+          window.location.href = href;
           return;
         }
 
         const popup = window.open(href, "_blank", "noopener,noreferrer");
+
         if (!popup) {
           window.location.href = href;
+          return;
         }
+
+        window.setTimeout(completeInstagramAction, ${INSTAGRAM_TASK_SECONDS * 1000});
       });
     </script>
   `;
