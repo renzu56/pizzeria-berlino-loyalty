@@ -9,3 +9,8 @@
 - Aktionskarten haben Emojis direkt im Titel: 📸 Instagram, ⭐ Google, 🎬 TikTok.
 - Aktions-Badges sitzen oben rechts, auch auf Handy.
 - Link-Eingaben in Aktionen sind auf Mobile kompakter und haben kürzere Platzhalter.
+
+## Syntax hotfix
+
+- Fixed missing comma in TikTok reward/action card config inside `server.js`.
+- Verified with `node --check server.js`.
