@@ -1422,3 +1422,240 @@ select { background: rgba(255, 255, 255, 0.94); }
   }
 }
 
+/* Final account UX cleanup: clickable rewards + compact action cards */
+.reward-grid {
+  align-items: stretch;
+}
+
+.reward-card-form {
+  display: block;
+  margin: 0;
+  height: 100%;
+}
+
+.reward-card,
+.reward-card.reward-open,
+.reward-card.reward-locked {
+  width: 100%;
+  height: 100%;
+  min-height: 132px;
+  display: grid;
+  grid-template-rows: minmax(44px, auto) 10px auto;
+  gap: 12px;
+  padding: 15px;
+  text-align: left;
+  color: var(--text);
+  border-radius: 18px;
+  background: #fffdf9;
+  border: 1px solid rgba(119, 78, 45, 0.13);
+  box-shadow: 0 12px 26px rgba(45, 28, 14, 0.045);
+}
+
+.reward-card-button {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.reward-card-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(191, 90, 52, 0.3);
+  box-shadow: 0 16px 34px rgba(45, 28, 14, 0.075);
+}
+
+.reward-open {
+  background: linear-gradient(135deg, #fff1e6 0%, #fffdf9 100%) !important;
+  border-color: rgba(191, 90, 52, 0.28) !important;
+  box-shadow: inset 0 0 0 1px rgba(191, 90, 52, 0.05), 0 14px 28px rgba(45, 28, 14, 0.06) !important;
+}
+
+.reward-locked {
+  opacity: 0.74;
+}
+
+.reward-card-top {
+  min-height: 44px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start !important;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.reward-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.reward-heading strong {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+}
+
+.reward-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  flex: 0 0 30px;
+  border-radius: 11px;
+  background: #fff7f1;
+  border: 1px solid rgba(191, 90, 52, 0.12);
+  line-height: 1;
+  font-size: 16px !important;
+}
+
+.reward-cost {
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  color: #8a6a55 !important;
+  font-size: 12px !important;
+  line-height: 1.1;
+  font-weight: 850;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.reward-action {
+  align-self: end;
+  justify-self: start;
+  font-size: 12px;
+  font-weight: 850;
+  color: #9f4320;
+}
+
+.reward-card form,
+.reward-card .btn,
+.reward-status,
+.reward-card p {
+  display: none !important;
+}
+
+.task-card {
+  position: relative;
+  padding: 15px 92px 15px 15px;
+  border-radius: 18px;
+  border: 1px solid rgba(119, 78, 45, 0.12);
+  background: linear-gradient(180deg, #fffdf9 0%, #fff8f2 100%);
+}
+
+.task-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-meta strong {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.task-meta p {
+  margin-top: 4px;
+}
+
+.task-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: auto;
+  min-height: 30px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  background: #fff7f1 !important;
+  color: #8b4d28 !important;
+  border: 1px solid rgba(191, 90, 52, 0.13);
+}
+
+.task-open-row {
+  margin-top: 12px;
+}
+
+.task-proof-form {
+  margin-top: 12px;
+}
+
+.task-proof-form input {
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
+@media (max-width: 760px) {
+  .account-dashboard-page .reward-card {
+    min-height: 120px;
+    padding: 12px;
+    border-radius: 16px;
+    gap: 10px;
+  }
+
+  .account-dashboard-page .reward-card-top {
+    min-height: 42px;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+  }
+
+  .account-dashboard-page .reward-heading strong {
+    min-height: 34px;
+    font-size: 13px;
+  }
+
+  .account-dashboard-page .reward-icon {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    flex-basis: 26px;
+    border-radius: 9px;
+    font-size: 14px !important;
+  }
+
+  .account-dashboard-page .reward-cost {
+    font-size: 10.5px !important;
+  }
+
+  .account-dashboard-page .task-card {
+    padding: 12px 74px 12px 12px;
+    border-radius: 16px;
+  }
+
+  .account-dashboard-page .task-badge {
+    top: 10px;
+    right: 10px;
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  .account-dashboard-page .task-proof-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .account-dashboard-page .task-proof-form input {
+    min-height: 38px;
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+
+  .account-dashboard-page .task-proof-form .btn,
+  .account-dashboard-page .task-open-row .btn {
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 12px;
+    width: 100%;
+  }
+}
+
