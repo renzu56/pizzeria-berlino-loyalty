@@ -1655,3 +1655,87 @@ select { background: rgba(255, 255, 255, 0.94); }
   }
 }
 
+/* FINAL direct action/reward compact fix */
+.account-dashboard-page .actions-panel-card .section-head p,
+.account-dashboard-page .actions-panel-card .task-meta p { display:none !important; }
+.account-dashboard-page .actions-panel-card .tasks-stack { gap:8px !important; }
+.account-dashboard-page .actions-panel-card .task-card {
+  padding:10px 12px !important;
+  border-radius:14px !important;
+  min-height:0 !important;
+  gap:8px !important;
+}
+.account-dashboard-page .actions-panel-card .task-meta {
+  padding-right:54px !important;
+  min-height:20px !important;
+  align-items:flex-start !important;
+}
+.account-dashboard-page .actions-panel-card .task-meta strong {
+  font-size:13px !important;
+  line-height:1.15 !important;
+  margin:0 !important;
+}
+.account-dashboard-page .actions-panel-card .task-badge {
+  top:0 !important;
+  right:0 !important;
+  padding:4px 7px !important;
+  min-height:20px !important;
+  font-size:10px !important;
+  line-height:1 !important;
+}
+.account-dashboard-page .actions-panel-card .button-row {
+  margin-top:7px !important;
+  flex-direction:row !important;
+  align-items:center !important;
+}
+.account-dashboard-page .actions-panel-card .btn,
+.account-dashboard-page .actions-panel-card .js-instagram-claim,
+.account-dashboard-page .actions-panel-card .action-submit-btn {
+  width:auto !important;
+  min-height:28px !important;
+  height:28px !important;
+  padding:0 9px !important;
+  border-radius:9px !important;
+  font-size:11px !important;
+  line-height:1 !important;
+}
+.account-dashboard-page .actions-panel-card .action-link-form,
+.account-dashboard-page .actions-panel-card .inline-form {
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  gap:6px !important;
+  align-items:center !important;
+  margin-top:7px !important;
+  flex-direction:initial !important;
+}
+.account-dashboard-page .actions-panel-card .action-link-input,
+.account-dashboard-page .actions-panel-card .inline-form input {
+  width:100% !important;
+  min-width:0 !important;
+  min-height:28px !important;
+  height:28px !important;
+  padding:5px 8px !important;
+  border-radius:9px !important;
+  font-size:11px !important;
+  line-height:1 !important;
+}
+.account-dashboard-page .reward-card,
+.account-dashboard-page .reward-card-button,
+.account-dashboard-page .reward-card-form { min-width:0 !important; max-width:100% !important; overflow:hidden !important; }
+.account-dashboard-page .reward-copy { min-width:0 !important; max-width:100% !important; display:flex !important; flex-direction:column !important; gap:2px !important; }
+.account-dashboard-page .reward-cost { display:block !important; font-size:9px !important; line-height:1.05 !important; max-width:100% !important; overflow-wrap:anywhere !important; }
+.account-dashboard-page .reward-progress-track { width:100% !important; max-width:100% !important; min-width:0 !important; height:8px !important; overflow:hidden !important; box-sizing:border-box !important; }
+.account-dashboard-page .reward-progress-fill { max-width:100% !important; height:100% !important; display:block !important; }
+
+@media (max-width: 760px) {
+  .account-dashboard-page .actions-panel-card .task-card { padding:9px 10px !important; }
+  .account-dashboard-page .actions-panel-card .task-meta { padding-right:48px !important; }
+  .account-dashboard-page .actions-panel-card .task-meta strong { font-size:12px !important; }
+  .account-dashboard-page .actions-panel-card .action-link-form,
+  .account-dashboard-page .actions-panel-card .inline-form { grid-template-columns:minmax(0,1fr) auto !important; }
+  .account-dashboard-page .actions-panel-card .action-link-input,
+  .account-dashboard-page .actions-panel-card .inline-form input { height:27px !important; min-height:27px !important; font-size:11px !important; }
+  .account-dashboard-page .actions-panel-card .btn,
+  .account-dashboard-page .actions-panel-card .js-instagram-claim,
+  .account-dashboard-page .actions-panel-card .action-submit-btn { height:27px !important; min-height:27px !important; font-size:11px !important; }
+}

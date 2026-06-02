@@ -1165,7 +1165,7 @@ function page({ title, user, body, description = "", head = "", pageClass = "" }
       </header>
 
       <main class="page">
-        ${description ? `<section class="page-head"><h1>${escapeHtml(title)}</h1>${description ? `<p>${escapeHtml(description)}</p>` : ""}</section>` : ""}
+        ${description ? `<section class="page-head"><h1>${escapeHtml(title)}</h1></section>` : ""}
         ${body}
       </main>
 
@@ -1254,8 +1254,8 @@ function progressBar(percent, fill = "linear-gradient(90deg,#bf5a34 0%,#e28a56 1
   const safePercent = Math.max(0, Math.min(100, Number(percent || 0)));
 
   return `
-    <div class="reward-progress-track" aria-hidden="true">
-      <div class="reward-progress-fill" style="width:${safePercent}%;background:${fill}"></div>
+    <div class="reward-progress-track" aria-hidden="true" style="width:100%;max-width:100%;min-width:0;height:8px;border-radius:999px;background:#efe6db;overflow:hidden;display:block;box-sizing:border-box;">
+      <div class="reward-progress-fill" style="width:${safePercent}%;max-width:100%;height:100%;background:${fill};display:block;border-radius:inherit;"></div>
     </div>
   `;
 }
@@ -2011,7 +2011,7 @@ app.get("/account", authRequired, async (req, res) => {
           <span class="reward-icon" aria-hidden="true">${rewardIcon(reward.id)}</span>
           <span class="reward-copy">
             <strong>${escapeHtml(reward.title)}</strong>
-            <span class="reward-cost">ab ${reward.cost} Pkt</span>
+            <span class="reward-cost" style="display:block;width:100%;max-width:100%;font-size:10px;line-height:1.1;margin-top:3px;padding:0;border:0;background:transparent;color:#8a5b3e;white-space:normal;overflow-wrap:anywhere;">ab ${reward.cost} Pkt</span>
           </span>
         </div>
       </div>
@@ -2082,7 +2082,7 @@ app.get("/account", authRequired, async (req, res) => {
           <div class="task-meta">
             <div>
               <strong>${escapeHtml(title)}</strong>
-              ${description ? `<p>${escapeHtml(description)}</p>` : ""}
+              
             </div>
             <span class="task-badge ${statusClass}">${escapeHtml(badgeText)}</span>
           </div>
@@ -2096,7 +2096,7 @@ app.get("/account", authRequired, async (req, res) => {
         <div class="task-meta">
           <div>
             <strong>${escapeHtml(title)}</strong>
-            ${description ? `<p>${escapeHtml(description)}</p>` : ""}
+            
           </div>
           <span class="task-badge ${statusClass}">${escapeHtml(badgeText)}</span>
         </div>
@@ -2109,9 +2109,9 @@ app.get("/account", authRequired, async (req, res) => {
             : ""
         }
 
-        <form class="inline-form" method="post" action="${formAction}">
-          <input name="link" placeholder="${escapeHtml(placeholder)}" required />
-          <button class="btn btn-secondary" type="submit">${escapeHtml(buttonLabel)}</button>
+        <form class="inline-form action-link-form" method="post" action="${formAction}">
+          <input class="action-link-input" name="link" inputmode="url" autocomplete="off" placeholder="${escapeHtml(placeholder)}" required />
+          <button class="btn btn-secondary action-submit-btn" type="submit">${escapeHtml(buttonLabel)}</button>
         </form>
       </div>
     `;
@@ -2128,7 +2128,7 @@ app.get("/account", authRequired, async (req, res) => {
 
   if (!instagramTask.claimedAt) {
     actionCards.push(`
-      <div class="task-card task-card-highlight">
+      <div class="task-card task-card-highlight action-card-instagram">
         <div class="task-meta">
           <div>
             <strong>📸 Instagram folgen</strong>
@@ -2137,7 +2137,7 @@ app.get("/account", authRequired, async (req, res) => {
         </div>
 
         <div class="button-row">
-          <a class="btn btn-primary js-instagram-claim" href="${escapeHtml(INSTAGRAM_URL)}" target="_blank" rel="noreferrer">Öffnen</a>
+          <a class="btn btn-primary btn-compact js-instagram-claim" href="${escapeHtml(INSTAGRAM_URL)}" target="_blank" rel="noreferrer">Öffnen</a>
         </div>
       </div>
     `);
@@ -2151,9 +2151,9 @@ app.get("/account", authRequired, async (req, res) => {
       href: REVIEW_URL,
       hrefLabel: "Google öffnen",
       formAction: "/tasks/review/submit",
-      placeholder: "Bewertungs-Link",
-      buttonLabel: reviewSubmission?.status === "rejected" ? "Erneut senden" : "Link senden",
-      badge: "Review"
+      placeholder: "Link",
+      buttonLabel: reviewSubmission?.status === "rejected" ? "Senden" : "Senden",
+      badge: "Google"
     }));
   }
 
@@ -2165,9 +2165,9 @@ app.get("/account", authRequired, async (req, res) => {
       href: "",
       hrefLabel: "",
       formAction: "/tasks/tiktok",
-      placeholder: "TikTok-Link",
-      buttonLabel: tiktokSubmission?.status === "rejected" ? "Erneut senden" : "Einreichen",
-      badge: "50 Pkt"
+      placeholder: "Link",
+      buttonLabel: tiktokSubmission?.status === "rejected" ? "Senden" : "Senden",
+      badge: "Review"
     }));
   }
 
@@ -2179,8 +2179,8 @@ app.get("/account", authRequired, async (req, res) => {
       href: entry.task.targetUrl || "",
       hrefLabel: "Aktion öffnen",
       formAction: `/tasks/custom/${entry.task.id}/submit`,
-      placeholder: "Dein Link oder Nachweis",
-      buttonLabel: entry.submission?.status === "rejected" ? "Erneut senden" : "Einreichen",
+      placeholder: "Link",
+      buttonLabel: entry.submission?.status === "rejected" ? "Senden" : "Senden",
       badge: `${entry.task.points} Pkt`
     }));
   }
@@ -2881,6 +2881,92 @@ app.get("/account", authRequired, async (req, res) => {
           justify-self: start !important;
         }
       }
+
+      /* FINAL direct action/reward compact fix */
+      .account-dashboard-page .actions-panel-card .section-head p,
+      .account-dashboard-page .actions-panel-card .task-meta p { display:none !important; }
+      .account-dashboard-page .actions-panel-card .tasks-stack { gap:8px !important; }
+      .account-dashboard-page .actions-panel-card .task-card {
+        padding:10px 12px !important;
+        border-radius:14px !important;
+        min-height:0 !important;
+        gap:8px !important;
+      }
+      .account-dashboard-page .actions-panel-card .task-meta {
+        padding-right:54px !important;
+        min-height:20px !important;
+        align-items:flex-start !important;
+      }
+      .account-dashboard-page .actions-panel-card .task-meta strong {
+        font-size:13px !important;
+        line-height:1.15 !important;
+        margin:0 !important;
+      }
+      .account-dashboard-page .actions-panel-card .task-badge {
+        top:0 !important;
+        right:0 !important;
+        padding:4px 7px !important;
+        min-height:20px !important;
+        font-size:10px !important;
+        line-height:1 !important;
+      }
+      .account-dashboard-page .actions-panel-card .button-row {
+        margin-top:7px !important;
+        flex-direction:row !important;
+        align-items:center !important;
+      }
+      .account-dashboard-page .actions-panel-card .btn,
+      .account-dashboard-page .actions-panel-card .js-instagram-claim,
+      .account-dashboard-page .actions-panel-card .action-submit-btn {
+        width:auto !important;
+        min-height:28px !important;
+        height:28px !important;
+        padding:0 9px !important;
+        border-radius:9px !important;
+        font-size:11px !important;
+        line-height:1 !important;
+      }
+      .account-dashboard-page .actions-panel-card .action-link-form,
+      .account-dashboard-page .actions-panel-card .inline-form {
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) auto !important;
+        gap:6px !important;
+        align-items:center !important;
+        margin-top:7px !important;
+        flex-direction:initial !important;
+      }
+      .account-dashboard-page .actions-panel-card .action-link-input,
+      .account-dashboard-page .actions-panel-card .inline-form input {
+        width:100% !important;
+        min-width:0 !important;
+        min-height:28px !important;
+        height:28px !important;
+        padding:5px 8px !important;
+        border-radius:9px !important;
+        font-size:11px !important;
+        line-height:1 !important;
+      }
+      .account-dashboard-page .reward-card,
+      .account-dashboard-page .reward-card-button,
+      .account-dashboard-page .reward-card-form { min-width:0 !important; max-width:100% !important; overflow:hidden !important; }
+      .account-dashboard-page .reward-copy { min-width:0 !important; max-width:100% !important; display:flex !important; flex-direction:column !important; gap:2px !important; }
+      .account-dashboard-page .reward-cost { display:block !important; font-size:9px !important; line-height:1.05 !important; max-width:100% !important; overflow-wrap:anywhere !important; }
+      .account-dashboard-page .reward-progress-track { width:100% !important; max-width:100% !important; min-width:0 !important; height:8px !important; overflow:hidden !important; box-sizing:border-box !important; }
+      .account-dashboard-page .reward-progress-fill { max-width:100% !important; height:100% !important; display:block !important; }
+
+      @media (max-width: 760px) {
+        .account-dashboard-page .actions-panel-card .task-card { padding:9px 10px !important; }
+        .account-dashboard-page .actions-panel-card .task-meta { padding-right:48px !important; }
+        .account-dashboard-page .actions-panel-card .task-meta strong { font-size:12px !important; }
+        .account-dashboard-page .actions-panel-card .action-link-form,
+        .account-dashboard-page .actions-panel-card .inline-form { grid-template-columns:minmax(0,1fr) auto !important; }
+        .account-dashboard-page .actions-panel-card .action-link-input,
+        .account-dashboard-page .actions-panel-card .inline-form input { height:27px !important; min-height:27px !important; font-size:11px !important; }
+        .account-dashboard-page .actions-panel-card .btn,
+        .account-dashboard-page .actions-panel-card .js-instagram-claim,
+        .account-dashboard-page .actions-panel-card .action-submit-btn { height:27px !important; min-height:27px !important; font-size:11px !important; }
+      }
+
 </style>
   `;
 
@@ -2986,65 +3072,42 @@ app.get("/account", authRequired, async (req, res) => {
     </section>
     <script>
       const instagramActionLink = document.querySelector(".js-instagram-claim");
-      let instagramActionRunning = false;
-      let instagramReturnHandlerAttached = false;
 
-      async function completeInstagramAction() {
-        if (!instagramActionRunning) return;
-
-        try {
-          const res = await fetch("/tasks/instagram/complete?mode=silent", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: "",
-            keepalive: true
-          });
-
-          if (!res.ok) {
-            const data = await res.json().catch(() => null);
-            const message = data?.error || "Instagram-Aktion konnte nicht abgeschlossen werden";
-            window.location.href = "/account?error=" + encodeURIComponent(message);
-            return;
-          }
-        } catch (error) {
-          console.error(error);
-          window.location.href = "/account?error=Instagram-Aktion+konnte+nicht+abgeschlossen+werden";
-          return;
+      function postInstagram(url) {
+        const body = new Blob([""], { type: "application/x-www-form-urlencoded" });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(url, body);
+          return Promise.resolve();
         }
 
-        window.location.href = "/account?success=Instagram+Aktion+abgeschlossen";
+        return fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "",
+          keepalive: true
+        }).catch(() => null);
       }
 
-      function attachInstagramReturnHandler() {
-        if (instagramReturnHandlerAttached) return;
-        instagramReturnHandlerAttached = true;
-
-        window.addEventListener("focus", () => {
-          if (!instagramActionRunning) return;
-          window.setTimeout(completeInstagramAction, ${INSTAGRAM_TASK_SECONDS * 1000});
-        });
-
-        document.addEventListener("visibilitychange", () => {
-          if (!instagramActionRunning || document.hidden) return;
-          window.setTimeout(completeInstagramAction, ${INSTAGRAM_TASK_SECONDS * 1000});
-        });
-      }
-
-      instagramActionLink?.addEventListener("click", async event => {
+      instagramActionLink?.addEventListener("click", event => {
         event.preventDefault();
-        if (instagramActionRunning) return;
 
-        instagramActionRunning = true;
+        const href = instagramActionLink.getAttribute("href") || "";
+        const card = instagramActionLink.closest(".task-card");
         instagramActionLink.classList.add("is-loading");
-        instagramActionLink.textContent = "Wird erfasst...";
-        attachInstagramReturnHandler();
+        instagramActionLink.textContent = "Erfasst";
+        instagramActionLink.setAttribute("aria-disabled", "true");
 
-        try {
-          await fetch("/tasks/instagram/opened", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: ""
-          });
+        postInstagram("/tasks/instagram/opened");
+        postInstagram("/tasks/instagram/complete?mode=silent");
+
+        if (card) {
+          card.classList.add("task-card-done");
+          window.setTimeout(() => card.remove(), 350);
+        }
+
+        const popup = window.open(href, "_blank", "noopener,noreferrer");
+        if (!popup) window.location.href = href;
+      });
         } catch (error) {
           console.error(error);
         }
@@ -3172,26 +3235,16 @@ app.post("/tasks/instagram/complete", authRequired, async (req, res) => {
   const task = await getTaskState(user.id, "instagram");
   const silentMode = String(req.query.mode || "") === "silent";
 
-  if (!task.clickedAt) {
-    if (silentMode) return res.status(400).json({ ok: false, error: "Instagram wurde noch nicht geöffnet" });
-    return res.redirect("/account?error=Instagram+wurde+noch+nicht+gestartet");
-  }
-
   if (task.claimedAt) {
     if (silentMode) return res.json({ ok: true, alreadyDone: true });
     return res.redirect("/account?error=Instagram+bereits+abgeschlossen");
-  }
-
-  const secondsSinceOpen = (Date.now() - new Date(task.clickedAt).getTime()) / 1000;
-  if (secondsSinceOpen < INSTAGRAM_TASK_SECONDS) {
-    if (silentMode) return res.status(400).json({ ok: false, error: "Bitte noch kurz warten" });
-    return res.redirect("/account?error=Bitte+noch+kurz+warten");
   }
 
   await prisma.$transaction(async tx => {
     await tx.taskState.update({
       where: { id: task.id },
       data: {
+        clickedAt: task.clickedAt || nowDate(),
         claimedAt: nowDate(),
         status: "done"
       }
