@@ -1658,4 +1658,213 @@ select { background: rgba(255, 255, 255, 0.94); }
     width: 100%;
   }
 }
+/* Reward/action layout hotfix */
+.actions-section-head {
+  margin-bottom: 10px !important;
+}
 
+.actions-section-head p {
+  display: none !important;
+}
+
+.reward-grid {
+  align-items: stretch !important;
+}
+
+.reward-card {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.reward-card-top {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-items: start !important;
+  gap: 5px !important;
+  min-width: 0 !important;
+}
+
+.reward-card-top > strong,
+.reward-title {
+  min-height: 42px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  line-height: 1.12 !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+}
+
+.reward-cost,
+.reward-meta {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #8a5b3e !important;
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+  font-weight: 800 !important;
+  letter-spacing: .02em !important;
+  text-transform: uppercase !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+.reward-card form {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.reward-card .progress-track,
+.reward-card [style*="height:10px"],
+.reward-card [style*="height: 10px"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.reward-card [style*="width:"] {
+  max-width: 100% !important;
+}
+
+.reward-card.is-clickable,
+.reward-card.reward-open {
+  cursor: pointer;
+}
+
+.reward-card.reward-open {
+  background: linear-gradient(180deg, #fff7ef 0%, #fffdf9 100%) !important;
+  border-color: rgba(191, 90, 52, .24) !important;
+}
+
+.reward-card:not(.reward-open) {
+  opacity: .82;
+}
+
+.task-card {
+  position: relative !important;
+  min-width: 0 !important;
+}
+
+.task-meta {
+  position: relative !important;
+  align-items: flex-start !important;
+  padding-right: 76px !important;
+}
+
+.task-meta p:empty {
+  display: none !important;
+}
+
+.task-badge {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  min-width: 0 !important;
+  padding: 5px 8px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+.task-card .button-row {
+  margin-top: 10px !important;
+}
+
+.task-card .btn,
+.task-card .js-instagram-claim {
+  width: auto !important;
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+}
+
+.task-card .inline-form {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+}
+
+.task-card .inline-form input {
+  min-height: 38px !important;
+  padding: 9px 10px !important;
+  font-size: 13px !important;
+}
+
+.task-card .inline-form .btn {
+  min-height: 38px !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 760px) {
+  .reward-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .reward-card {
+    padding: 12px !important;
+    border-radius: 15px !important;
+  }
+
+  .reward-card-top > strong,
+  .reward-title {
+    min-height: 48px !important;
+    font-size: 13px !important;
+  }
+
+  .reward-cost,
+  .reward-meta {
+    font-size: 10px !important;
+  }
+
+  .task-card {
+    padding: 13px !important;
+  }
+
+  .task-meta {
+    padding-right: 66px !important;
+  }
+
+  .task-meta strong {
+    font-size: 14px !important;
+  }
+
+  .task-card .inline-form {
+    grid-template-columns: 1fr !important;
+  }
+
+  .task-card .inline-form input {
+    width: 100% !important;
+    flex: 0 1 auto !important;
+    min-height: 36px !important;
+    font-size: 12px !important;
+  }
+
+  .task-card .inline-form .btn {
+    width: auto !important;
+    justify-self: start !important;
+    min-height: 34px !important;
+    font-size: 12px !important;
+  }
+
+  .task-card .button-row {
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .task-card .btn,
+  .task-card .js-instagram-claim {
+    width: auto !important;
+  }
+}
